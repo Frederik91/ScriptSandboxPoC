@@ -1,29 +1,34 @@
 {
   "format": 1,
   "restore": {
-    "/Users/frederik/repos/IsolatedTypeScript/Worker/Worker.csproj": {}
+    "C:\\Users\\Frederik Tegnander\\source\\repos\\ScriptSandboxPoC\\Worker\\Worker.csproj": {}
   },
   "projects": {
-    "/Users/frederik/repos/IsolatedTypeScript/Worker/Worker.csproj": {
+    "C:\\Users\\Frederik Tegnander\\source\\repos\\ScriptSandboxPoC\\Worker\\Worker.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/frederik/repos/IsolatedTypeScript/Worker/Worker.csproj",
+        "projectUniqueName": "C:\\Users\\Frederik Tegnander\\source\\repos\\ScriptSandboxPoC\\Worker\\Worker.csproj",
         "projectName": "Worker",
-        "projectPath": "/Users/frederik/repos/IsolatedTypeScript/Worker/Worker.csproj",
-        "packagesPath": "/Users/frederik/.nuget/packages/",
-        "outputPath": "/Users/frederik/repos/IsolatedTypeScript/Worker/obj/",
+        "projectPath": "C:\\Users\\Frederik Tegnander\\source\\repos\\ScriptSandboxPoC\\Worker\\Worker.csproj",
+        "packagesPath": "C:\\Users\\Frederik Tegnander\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\Frederik Tegnander\\source\\repos\\ScriptSandboxPoC\\Worker\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
-          "/Users/frederik/.nuget/NuGet/NuGet.Config"
+          "C:\\Users\\Frederik Tegnander\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
         ],
         "sources": {
-          "/usr/local/share/dotnet/library-packs": {},
+          "C:\\LocalNugetFeed": {},
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {},
-          "https://nuget.devexpress.com/api": {},
-          "https://pkgs.dev.azure.com/aecse-Utveckling/_packaging/AEC-Feed-Development/nuget/v3/index.json": {},
+          "https://nuget.devexpress.com/gNax7pJ4Js5wCKnLyml8RZ4Wc2PXTWiMkAdniiT3xEMtS1AazZ/api/v3/index.json": {},
           "https://pkgs.dev.azure.com/cowi-tools/_packaging/cowi-tools/nuget/v3/index.json": {}
         },
         "frameworks": {
@@ -42,7 +47,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.100"
+        "SdkAnalysisLevel": "10.0.100"
       },
       "frameworks": {
         "net9.0": {
@@ -73,7 +78,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/9.0.101/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.100/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

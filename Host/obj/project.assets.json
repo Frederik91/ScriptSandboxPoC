@@ -2,6 +2,35 @@
   "version": 3,
   "targets": {
     "net9.0": {
+      "Acornima/1.2.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/Acornima.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Acornima.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Jint/4.4.2": {
+        "type": "package",
+        "dependencies": {
+          "Acornima": "1.2.0"
+        },
+        "compile": {
+          "lib/net8.0/Jint.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Jint.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "MessagePack/2.5.192": {
         "type": "package",
         "dependencies": {
@@ -264,10 +293,64 @@
         "build": {
           "buildTransitive/net6.0/_._": {}
         }
+      },
+      "Worker/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "dependencies": {
+          "Jint": "4.4.2",
+          "StreamJsonRpc": "2.22.23"
+        },
+        "compile": {
+          "bin/placeholder/Worker.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Worker.dll": {}
+        }
       }
     }
   },
   "libraries": {
+    "Acornima/1.2.0": {
+      "sha512": "pT3kn/WrVzz4NmrzN5zOAVDOK2VuQFJ7VivKviKmKbbzppMVEToEvnAaVhxerXclptvjpBUudhOwUtDsRjrMYQ==",
+      "type": "package",
+      "path": "acornima/1.2.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "acornima.1.2.0.nupkg.sha512",
+        "acornima.nuspec",
+        "lib/net462/Acornima.dll",
+        "lib/net462/Acornima.xml",
+        "lib/net8.0/Acornima.dll",
+        "lib/net8.0/Acornima.xml",
+        "lib/netstandard2.0/Acornima.dll",
+        "lib/netstandard2.0/Acornima.xml",
+        "lib/netstandard2.1/Acornima.dll",
+        "lib/netstandard2.1/Acornima.xml"
+      ]
+    },
+    "Jint/4.4.2": {
+      "sha512": "+2G0SkWWYiHjvCWFYgWgLUDVvemMxjgmlnT3X4p8cllSt1SX3jgO7PSqxenTW4yDE4dOQ8BLRmbuiC8ANp1trw==",
+      "type": "package",
+      "path": "jint/4.4.2",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "jint.4.4.2.nupkg.sha512",
+        "jint.nuspec",
+        "lib/net462/Jint.dll",
+        "lib/net462/Jint.xml",
+        "lib/net8.0/Jint.dll",
+        "lib/net8.0/Jint.xml",
+        "lib/netstandard2.0/Jint.dll",
+        "lib/netstandard2.0/Jint.xml",
+        "lib/netstandard2.1/Jint.dll",
+        "lib/netstandard2.1/Jint.xml"
+      ]
+    },
     "MessagePack/2.5.192": {
       "sha512": "Jtle5MaFeIFkdXtxQeL9Tu2Y3HsAQGoSntOzrn6Br/jrl6c8QmG22GEioT5HBtZJR0zw0s46OnKU8ei2M3QifA==",
       "type": "package",
@@ -586,42 +669,58 @@
         "system.io.pipelines.nuspec",
         "useSharedDesignerContext.txt"
       ]
+    },
+    "Worker/1.0.0": {
+      "type": "project",
+      "path": "../Worker/Worker.csproj",
+      "msbuildProject": "../Worker/Worker.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net9.0": [
-      "StreamJsonRpc >= 2.22.23"
+      "StreamJsonRpc >= 2.22.23",
+      "Worker >= 1.0.0"
     ]
   },
   "packageFolders": {
-    "/Users/frederik/.nuget/packages/": {}
+    "C:\\Users\\Frederik Tegnander\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/frederik/repos/IsolatedTypeScript/Host/Host.csproj",
+      "projectUniqueName": "C:\\Users\\Frederik Tegnander\\source\\repos\\ScriptSandboxPoC\\Host\\Host.csproj",
       "projectName": "Host",
-      "projectPath": "/Users/frederik/repos/IsolatedTypeScript/Host/Host.csproj",
-      "packagesPath": "/Users/frederik/.nuget/packages/",
-      "outputPath": "/Users/frederik/repos/IsolatedTypeScript/Host/obj/",
+      "projectPath": "C:\\Users\\Frederik Tegnander\\source\\repos\\ScriptSandboxPoC\\Host\\Host.csproj",
+      "packagesPath": "C:\\Users\\Frederik Tegnander\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\Frederik Tegnander\\source\\repos\\ScriptSandboxPoC\\Host\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
       "configFilePaths": [
-        "/Users/frederik/.nuget/NuGet/NuGet.Config"
+        "C:\\Users\\Frederik Tegnander\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
         "net9.0"
       ],
       "sources": {
-        "/usr/local/share/dotnet/library-packs": {},
+        "C:\\LocalNugetFeed": {},
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {},
-        "https://nuget.devexpress.com/api": {},
-        "https://pkgs.dev.azure.com/aecse-Utveckling/_packaging/AEC-Feed-Development/nuget/v3/index.json": {},
+        "https://nuget.devexpress.com/gNax7pJ4Js5wCKnLyml8RZ4Wc2PXTWiMkAdniiT3xEMtS1AazZ/api/v3/index.json": {},
         "https://pkgs.dev.azure.com/cowi-tools/_packaging/cowi-tools/nuget/v3/index.json": {}
       },
       "frameworks": {
         "net9.0": {
           "targetAlias": "net9.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "C:\\Users\\Frederik Tegnander\\source\\repos\\ScriptSandboxPoC\\Worker\\Worker.csproj": {
+              "projectPath": "C:\\Users\\Frederik Tegnander\\source\\repos\\ScriptSandboxPoC\\Worker\\Worker.csproj"
+            }
+          }
         }
       },
       "warningProperties": {
@@ -634,7 +733,7 @@
         "auditLevel": "low",
         "auditMode": "direct"
       },
-      "SdkAnalysisLevel": "9.0.100"
+      "SdkAnalysisLevel": "10.0.100"
     },
     "frameworks": {
       "net9.0": {
@@ -661,7 +760,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/9.0.101/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.100/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

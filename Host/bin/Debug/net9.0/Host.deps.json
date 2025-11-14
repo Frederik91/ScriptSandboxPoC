@@ -8,10 +8,30 @@
     ".NETCoreApp,Version=v9.0": {
       "Host/1.0.0": {
         "dependencies": {
-          "StreamJsonRpc": "2.22.23"
+          "StreamJsonRpc": "2.22.23",
+          "Worker": "1.0.0"
         },
         "runtime": {
           "Host.dll": {}
+        }
+      },
+      "Acornima/1.2.0": {
+        "runtime": {
+          "lib/net8.0/Acornima.dll": {
+            "assemblyVersion": "1.2.0.0",
+            "fileVersion": "1.2.0.0"
+          }
+        }
+      },
+      "Jint/4.4.2": {
+        "dependencies": {
+          "Acornima": "1.2.0"
+        },
+        "runtime": {
+          "lib/net8.0/Jint.dll": {
+            "assemblyVersion": "4.4.2.0",
+            "fileVersion": "4.0.0.0"
+          }
         }
       },
       "MessagePack/2.5.192": {
@@ -146,8 +166,7 @@
       "Nerdbank.Streams/2.12.87": {
         "dependencies": {
           "Microsoft.VisualStudio.Threading.Only": "17.13.61",
-          "Microsoft.VisualStudio.Validation": "17.8.8",
-          "System.IO.Pipelines": "8.0.0"
+          "Microsoft.VisualStudio.Validation": "17.8.8"
         },
         "runtime": {
           "lib/net8.0/Nerdbank.Streams.dll": {
@@ -170,8 +189,7 @@
           "Microsoft.VisualStudio.Threading.Only": "17.13.61",
           "Microsoft.VisualStudio.Validation": "17.8.8",
           "Nerdbank.Streams": "2.12.87",
-          "Newtonsoft.Json": "13.0.3",
-          "System.IO.Pipelines": "8.0.0"
+          "Newtonsoft.Json": "13.0.3"
         },
         "runtime": {
           "lib/net8.0/StreamJsonRpc.dll": {
@@ -221,7 +239,18 @@
           }
         }
       },
-      "System.IO.Pipelines/8.0.0": {}
+      "Worker/1.0.0": {
+        "dependencies": {
+          "Jint": "4.4.2",
+          "StreamJsonRpc": "2.22.23"
+        },
+        "runtime": {
+          "Worker.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
     }
   },
   "libraries": {
@@ -229,6 +258,20 @@
       "type": "project",
       "serviceable": false,
       "sha512": ""
+    },
+    "Acornima/1.2.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-pT3kn/WrVzz4NmrzN5zOAVDOK2VuQFJ7VivKviKmKbbzppMVEToEvnAaVhxerXclptvjpBUudhOwUtDsRjrMYQ==",
+      "path": "acornima/1.2.0",
+      "hashPath": "acornima.1.2.0.nupkg.sha512"
+    },
+    "Jint/4.4.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-+2G0SkWWYiHjvCWFYgWgLUDVvemMxjgmlnT3X4p8cllSt1SX3jgO7PSqxenTW4yDE4dOQ8BLRmbuiC8ANp1trw==",
+      "path": "jint/4.4.2",
+      "hashPath": "jint.4.4.2.nupkg.sha512"
     },
     "MessagePack/2.5.192": {
       "type": "package",
@@ -286,12 +329,10 @@
       "path": "streamjsonrpc/2.22.23",
       "hashPath": "streamjsonrpc.2.22.23.nupkg.sha512"
     },
-    "System.IO.Pipelines/8.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-FHNOatmUq0sqJOkTx+UF/9YK1f180cnW5FVqnQMvYUN0elp6wFzbtPSiqbo1/ru8ICp43JM1i7kKkk6GsNGHlA==",
-      "path": "system.io.pipelines/8.0.0",
-      "hashPath": "system.io.pipelines.8.0.0.nupkg.sha512"
+    "Worker/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
     }
   }
 }

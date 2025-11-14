@@ -1,26 +1,47 @@
 ﻿// 1. Start Worker process (dotnet Worker.dll)
 using System.Diagnostics;
+using System.IO.Pipes;
 using StreamJsonRpc;
 
+// 1. Build worker if needed
+var workerDir = GetWorkerDirectory();
+var workerDll = Path.Combine(workerDir, "bin", "Debug", "net9.0", "Worker.dll");
+
+// 2. Create named pipes for bidirectional communication
+var pipeName = $"ScriptSandbox_{Guid.NewGuid()}";
+using var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+
+// 3. Start Worker process with pipe name
 var psi = new ProcessStartInfo
 {
     FileName = "dotnet",
-    Arguments = "Worker.dll",
-    WorkingDirectory = GetWorkerDirectory(),
-    RedirectStandardInput = true,
-    RedirectStandardOutput = true,
+    Arguments = $"\"{workerDll}\" {pipeName}",
+    RedirectStandardError = true,
     UseShellExecute = false,
 };
 
 var worker = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start worker.");
 
-// 2. Set up JSON-RPC over worker's stdin/stdout
+// Log any errors from worker to help debug
+if (worker.StandardError != null)
+{
+    _ = Task.Run(async () =>
+    {
+        string? line;
+        while ((line = await worker.StandardError.ReadLineAsync()) != null)
+        {
+            Console.Error.WriteLine($"[Worker] {line}");
+        }
+    });
+}
+
+// 4. Wait for worker to connect to the pipe
+await pipe.WaitForConnectionAsync();
+
+// 5. Set up JSON-RPC over the pipe
 var hostApi = new HostApi();
 
-var rpc = new JsonRpc(
-    worker.StandardOutput.BaseStream,
-    worker.StandardInput.BaseStream,
-    hostApi);
+var rpc = new JsonRpc(pipe, pipe, hostApi);
 
 rpc.StartListening();
 
@@ -37,9 +58,9 @@ run();
 Console.WriteLine("Sending script to worker...");
 await rpc.InvokeAsync<object>("Worker.RunScript", jsCode);
 Console.WriteLine("Script finished.");
+rpc.Dispose();
 
 // Clean up
-worker.StandardInput.Close();
 await rpc.Completion;
 worker.WaitForExit();
 
@@ -47,7 +68,15 @@ static string GetWorkerDirectory()
 {
     var currentDir = AppContext.BaseDirectory;
     // Assumes Worker project is in ../Worker relative to Host project
-    return Path.Combine(currentDir, "../../../../Worker/Worker.csproj");
+    while (!string.IsNullOrEmpty(currentDir) && !Directory.Exists(Path.Combine(currentDir, "Worker")))
+    {
+        currentDir = Path.GetDirectoryName(currentDir);
+    }
+
+    if (string.IsNullOrEmpty(currentDir))
+        throw new DirectoryNotFoundException("Could not find Worker directory.");
+
+    return Path.Combine(currentDir, "Worker");
 }
 
 public class HostApi

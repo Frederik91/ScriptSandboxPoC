@@ -1,18 +1,38 @@
-﻿// Set up JSON-RPC over stdin/stdout
+﻿// Set up JSON-RPC over pipes passed as arguments
 using Jint;
 using StreamJsonRpc;
+using System.IO.Pipes;
+using Microsoft.Win32.SafeHandles;
 
-var input = Console.OpenStandardInput();
-var output = Console.OpenStandardOutput();
+if (args.Length < 1)
+{
+    System.Console.Error.WriteLine("Worker expects one argument: pipeName");
+    Environment.Exit(1);
+}
 
-var rpc = new JsonRpc(input, output);
-var workerMethods = new WorkerMethods(rpc);
+var pipeName = args[0];
 
-rpc.AddLocalRpcTarget(workerMethods);
-rpc.StartListening();
+try
+{
+    // Connect to the named pipe created by the host
+    using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+    await pipe.ConnectAsync();
 
-// Wait until the host closes the stream
-await rpc.Completion;
+    var rpc = new JsonRpc(pipe, pipe);
+
+    var workerMethods = new WorkerMethods(rpc);
+
+    rpc.AddLocalRpcTarget(workerMethods);
+    rpc.StartListening();
+
+    // Wait until the host closes the stream
+    await rpc.Completion;
+}
+catch (Exception ex)
+{
+    System.Console.Error.WriteLine($"Worker error: {ex}");
+    throw;
+}
 
 
 public class WorkerMethods
