@@ -8,7 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="StreamJsonRpc" Version="2.22.23" />
     <PackageReference Include="Wasmtime" Version="34.0.2" />
   </ItemGroup>
 

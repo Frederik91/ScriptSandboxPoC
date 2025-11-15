@@ -1,6 +1,6 @@
 using System.Text;
 using Wasmtime;
-using Worker.Core.RpcClient;
+using Worker.Core.HostApi;
 
 namespace Worker.Core.WasmExecution;
 
@@ -10,11 +10,11 @@ namespace Worker.Core.WasmExecution;
 /// </summary>
 public class WasmScriptExecutor : IWasmScriptExecutor
 {
-    private readonly IRpcClient _rpc;
+    private readonly IHostApi _hostApi;
 
-    public WasmScriptExecutor(IRpcClient rpc)
+    public WasmScriptExecutor(IHostApi? hostApi = null)
     {
-        _rpc = rpc ?? throw new ArgumentNullException(nameof(rpc));
+        _hostApi = hostApi ?? new HostApiImpl();
     }
 
     /// <inheritdoc />
@@ -105,7 +105,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor
         }
 
         var message = Encoding.UTF8.GetString(buf);
-        _rpc.InvokeAsync<object?>("Host.Log", message).GetAwaiter().GetResult();
+        _hostApi.Log(message);
     }
 
     /// <summary>
@@ -307,7 +307,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor
     private string HandleLogCall(System.Text.Json.JsonElement args)
     {
         var message = args[0].GetString();
-        _rpc.InvokeAsync<object?>("Host.Log", message!).GetAwaiter().GetResult();
+        _hostApi.Log(message!);
         return "{\"result\":null}";
     }
 
@@ -318,7 +318,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor
     {
         var a = args[0].GetInt32();
         var b = args[1].GetInt32();
-        var sum = _rpc.InvokeAsync<int>("Host.Add", a, b).GetAwaiter().GetResult();
+        var sum = _hostApi.Add(a, b);
         return $"{{\"result\":{sum}}}";
     }
 
@@ -329,7 +329,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor
     {
         var a = args[0].GetInt32();
         var b = args[1].GetInt32();
-        var difference = a - b; // Simple implementation for demonstration
+        var difference = _hostApi.Subtract(a, b);
         return $"{{\"result\":{difference}}}";
     }
 }

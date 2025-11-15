@@ -1,12 +1,10 @@
-using StreamJsonRpc;
-using Worker.Core.RpcClient;
 using Worker.Core.WasmExecution;
 
 namespace Worker.Services;
 
 /// <summary>
-/// RPC methods exposed to the host for script execution.
-/// Acts as the entry point for all host-initiated operations.
+/// Methods for script execution.
+/// Acts as the entry point for running JavaScript code in the sandbox.
 /// </summary>
 public class WorkerMethods
 {
@@ -19,11 +17,9 @@ public class WorkerMethods
 
     /// <summary>
     /// Executes JavaScript code in the WASM sandbox.
-    /// Called by the host over JSON-RPC.
     /// </summary>
     /// <param name="jsCode">The JavaScript source code to execute.</param>
     /// <exception cref="InvalidOperationException">Thrown when script execution fails.</exception>
-    [JsonRpcMethod("Worker.RunScript")]
     public void RunScript(string jsCode)
     {
         if (string.IsNullOrEmpty(jsCode))

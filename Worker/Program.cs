@@ -1,6 +1,4 @@
-﻿using StreamJsonRpc;
-using System.IO.Pipes;
-using Worker.Core.RpcClient;
+﻿using System.Text;
 using Worker.Core.WasmExecution;
 using Worker.Services;
 
@@ -8,27 +6,18 @@ const string LogPrefix = "[Worker]";
 
 try
 {
-    ValidateArgs(args);
-    var pipeName = args[0];
+    // Get the JavaScript code to execute
+    var scriptPath = GetScriptPath();
+    var jsCode = File.ReadAllText(scriptPath);
 
-    // Connect to the host via named pipe
-    using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
-    await pipe.ConnectAsync();
-
-    // Set up RPC
-    var rpc = new JsonRpc(pipe, pipe);
-    var rpcAdapter = new JsonRpcClientAdapter(rpc);
-
-    // Set up script execution
-    var scriptExecutor = new WasmScriptExecutor(rpcAdapter);
+    // Set up script execution (no RPC needed)
+    var scriptExecutor = new WasmScriptExecutor();
     var workerMethods = new WorkerMethods(scriptExecutor);
 
-    // Register RPC methods and start listening
-    rpc.AddLocalRpcTarget(workerMethods);
-    rpc.StartListening();
-
-    // Wait until the host closes the connection
-    await rpc.Completion;
+    // Execute the script directly
+    Console.WriteLine($"{LogPrefix} Executing script from {scriptPath}");
+    workerMethods.RunScript(jsCode);
+    Console.WriteLine($"{LogPrefix} Script completed successfully");
 }
 catch (Exception ex)
 {
@@ -36,11 +25,30 @@ catch (Exception ex)
     Environment.Exit(1);
 }
 
-static void ValidateArgs(string[] args)
+static string GetScriptPath()
 {
-    if (args.Length < 1)
+    // Default to sample-script.js in the scripts/dist directory
+    var repoRoot = GetRepoRoot();
+    var scriptPath = Path.Combine(repoRoot, "scripts", "dist", "sample-script.js");
+    
+    if (!File.Exists(scriptPath))
     {
-        Console.Error.WriteLine($"[Worker] Error: Worker expects one argument: pipeName");
-        Environment.Exit(1);
+        throw new FileNotFoundException($"Script not found at {scriptPath}");
     }
+    
+    return scriptPath;
+}
+
+static string GetRepoRoot()
+{
+    var currentDir = AppContext.BaseDirectory;
+    while (!string.IsNullOrEmpty(currentDir) && !Directory.Exists(Path.Combine(currentDir, "scripts")))
+    {
+        currentDir = Path.GetDirectoryName(currentDir);
+    }
+
+    if (string.IsNullOrEmpty(currentDir))
+        throw new DirectoryNotFoundException("Could not find scripts directory.");
+
+    return currentDir;
 }

@@ -2,7 +2,6 @@
 
 using Xunit;
 using Moq;
-using Worker.Core.RpcClient;
 using Worker.Core.WasmExecution;
 using Worker.Services;
 
