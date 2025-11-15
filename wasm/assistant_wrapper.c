@@ -20,28 +20,17 @@ __attribute__((import_module("host"), import_name("call")))
 int host_call(const char* in_ptr, int in_len,
               char* out_ptr, int out_cap);
 
+__attribute__((import_module("host"), import_name("log")))
+void host_log(const char* ptr, int len);
+
 // ---------- Error reporting infrastructure ----------
 
 // Global error message buffer for inter-process communication
 // Accessible from host via get_last_error_ptr() and get_last_error_len()
 static char g_last_error[1024];
 
-// ---------- Global QuickJS state (legacy) ----------
-// These are kept for potential future use with persistent context model
-
-static JSRuntime* rt  = NULL;
-static JSContext* ctx = NULL;
-static int        initialized = 0;
-
-static void init_vm(void)
-{
-    if (initialized)
-        return;
-
-    rt  = JS_NewRuntime();
-    ctx = JS_NewContext(rt);
-    initialized = 1;
-}
+// ---------- Global QuickJS state ----------
+// Note: Each eval_js call creates its own runtime/context for isolation
 
 // ---------- Error message handling ----------
 //
@@ -101,6 +90,9 @@ static void capture_exception(JSContext* ctx, JSValue exc) {
 // ---------- JS <-> host_call bridge ----------
 
 // JS signature: __host_call_json(payload: string): string
+// This function is registered as a JavaScript callable and is invoked dynamically
+// from eval_js(), so the unused function warning from the C compiler is a false positive.
+__attribute__((unused))
 static JSValue js_host_call_json(JSContext* ctx,
                                  JSValueConst this_val,
                                  int argc,
@@ -133,20 +125,7 @@ static JSValue js_host_call_json(JSContext* ctx,
     return JS_NewStringLen(ctx, out_buf, written);
 }
 
-// Run once: define global __host_call_json
-static void install_host_bridge(void)
-{
-    JSValue global = JS_GetGlobalObject(ctx);
-
-    JS_SetPropertyStr(
-        ctx,
-        global,
-        "__host_call_json",
-        JS_NewCFunction(ctx, js_host_call_json, "__host_call_json", 1)
-    );
-
-    JS_FreeValue(ctx, global);
-}
+// Note: Host bridge is installed per-evaluation in eval_js()
 
 // ---------- Error reporting ----------
 
@@ -172,38 +151,62 @@ int get_last_error_len(void) {
     return (int)strlen(g_last_error);
 }
 
-// Optional: embed a tiny bootstrap that defines assistantApi in JS.
-// Absolute minimal version - just defines empty object
-static const char* bootstrap_src =
-    "var assistantApi = {};\n";
+// ---------- Console logging ----------
 
-// Evaluate JS code in the current context
-static int eval_code(const char* src, size_t len, const char* filename)
+static JSValue js_console_log(JSContext *ctx, JSValueConst this_val,
+                              int argc, JSValueConst *argv)
 {
-    JSValue result = JS_Eval(ctx, src, len, filename, JS_EVAL_TYPE_GLOBAL);
+    size_t len = 0;
+    const char* str = JS_ToCStringLen(ctx, &len, argv[0]);
+    if (!str)
+        return JS_EXCEPTION;
 
-    if (JS_IsException(result)) {
-        JSValue exc = JS_GetException(ctx);
-        size_t elen;
-        const char* estr = JS_ToCStringLen(ctx, &elen, exc);
-        if (estr) {
-            // Try to report error via host_call if we can, otherwise just note we had an error
-            // For now just silently fail - error is bubbled up as return code
-            JS_FreeCString(ctx, estr);
-        }
-        JS_FreeValue(ctx, exc);
-        JS_FreeValue(ctx, result);
-        return 1;  // Error
+    host_log(str, (int)len);
+    JS_FreeCString(ctx, str);
+    return JS_UNDEFINED;
+}
+
+// Install host bridge (console.log, __host_call_json) into the JS context
+static int install_host_bridge(JSContext* ctx) {
+    JSValue global = JS_GetGlobalObject(ctx);
+    if (JS_IsUndefined(global) || JS_IsNull(global)) {
+        JS_FreeValue(ctx, global);
+        set_error("Global object is null/undefined - context initialization failed");
+        return -1;
     }
 
-    if (JS_IsUndefined(result) || JS_IsNull(result)) {
-        // These are valid returns from eval
-        JS_FreeValue(ctx, result);
-        return 0;
+    // console object
+    JSValue console = JS_NewObject(ctx);
+    if (JS_IsException(console)) {
+        JS_FreeValue(ctx, global);
+        set_error("Failed to create console object");
+        return -1;
     }
 
-    JS_FreeValue(ctx, result);
-    return 0;  // Success
+    // console.log
+    JSValue logFn = JS_NewCFunction(ctx, js_console_log, "log", 1);
+    if (JS_IsException(logFn)) {
+        JS_FreeValue(ctx, console);
+        JS_FreeValue(ctx, global);
+        set_error("Failed to create console.log function");
+        return -1;
+    }
+    JS_SetPropertyStr(ctx, console, "log", logFn);
+
+    // Attach console to global
+    JS_SetPropertyStr(ctx, global, "console", console);
+
+    // Optionally: expose __host_call_json helper
+    JSValue hostCallFn = JS_NewCFunction(ctx, js_host_call_json, "__host_call_json", 1);
+    if (JS_IsException(hostCallFn)) {
+        JS_FreeValue(ctx, global);
+        set_error("Failed to create __host_call_json function");
+        return -1;
+    }
+    JS_SetPropertyStr(ctx, global, "__host_call_json", hostCallFn);
+
+    JS_FreeValue(ctx, global);
+    return 0;
 }
 
 // ---------- JavaScript Evaluation ----------
@@ -252,16 +255,16 @@ int eval_js(const char* code_ptr, int len)
         return 21;
     }
 
-    // Verify global object is accessible
-    JSValue glob = JS_GetGlobalObject(ctx);
-    if (JS_IsUndefined(glob) || JS_IsNull(glob)) {
-        set_error("Global object is null/undefined - context initialization failed");
-        JS_FreeValue(ctx, glob);
+    // Disable stack limit checks for WASI
+    JS_SetMaxStackSize(rt, 0);
+
+    // Install console.log and __host_call_json
+    if (install_host_bridge(ctx) != 0) {
+        // install_host_bridge already set an error message
         JS_FreeContext(ctx);
         JS_FreeRuntime(rt);
-        return 23;
+        return 23; // or some new error code if you prefer
     }
-    JS_FreeValue(ctx, glob);
 
     // Disable stack limit checks (QuickJS default stack limit is very conservative for WASI)
     // Setting to 0 disables the check entirely

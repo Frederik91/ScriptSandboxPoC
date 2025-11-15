@@ -2,6 +2,9 @@
 
 using Xunit;
 using Moq;
+using Worker.Core.RpcClient;
+using Worker.Core.WasmExecution;
+using Worker.Services;
 
 /// <summary>
 /// TDD tests for WorkerMethods WASM execution.
@@ -13,12 +16,10 @@ public class WorkerMethodsTests
     public void RunScript_WithSimpleJavaScript_ExecutesSuccessfully()
     {
         // Arrange
-        var mockRpc = new Mock<IRpcClient>();
-        mockRpc
-            .Setup(r => r.InvokeAsync<object?>(It.IsAny<string>(), It.IsAny<object?[]?>()))
-            .ReturnsAsync((object?)null);
+        var mockExecutor = new Mock<IWasmScriptExecutor>();
+        mockExecutor.Setup(e => e.ExecuteScript(It.IsAny<string>()));
 
-        var workerMethods = new WorkerMethods(mockRpc.Object);
+        var workerMethods = new WorkerMethods(mockExecutor.Object);
         var simpleCode = "1 + 1";
 
         // Act
@@ -26,74 +27,51 @@ public class WorkerMethodsTests
 
         // Assert
         Assert.Null(exception);
+        mockExecutor.Verify(e => e.ExecuteScript(simpleCode), Times.Once);
     }
 
     [Fact]
-    public void RunScript_WithConsoleLog_CallsHostLogRpc()
+    public void RunScript_WithConsoleLog_IsPassedToExecutor()
     {
         // Arrange
-        var mockRpc = new Mock<IRpcClient>();
-        var logCalls = new List<string>();
+        var mockExecutor = new Mock<IWasmScriptExecutor>();
+        mockExecutor.Setup(e => e.ExecuteScript(It.IsAny<string>()));
 
-        mockRpc
-            .Setup(r => r.InvokeAsync<object?>(It.IsAny<string>(), It.IsAny<object?[]?>()))
-            .Callback((string method, object?[]? args) =>
-            {
-                if (method == "Host.Log" && args?.Length > 0)
-                {
-                    logCalls.Add(args[0]?.ToString() ?? "");
-                }
-            })
-            .ReturnsAsync((object?)null);
-
-        var workerMethods = new WorkerMethods(mockRpc.Object);
+        var workerMethods = new WorkerMethods(mockExecutor.Object);
         var codeWithLog = "console.log('test message')";
 
         // Act
         workerMethods.RunScript(codeWithLog);
 
         // Assert
-        Assert.NotEmpty(logCalls);
-        Assert.Contains("test message", logCalls[0]);
+        mockExecutor.Verify(e => e.ExecuteScript(codeWithLog), Times.Once);
     }
 
     [Fact]
     public void RunScript_WithEmptyCode_ExecutesWithoutError()
     {
         // Arrange
-        var mockRpc = new Mock<IRpcClient>();
-        mockRpc
-            .Setup(r => r.InvokeAsync<object?>(It.IsAny<string>(), It.IsAny<object?[]?>()))
-            .ReturnsAsync((object?)null);
+        var mockExecutor = new Mock<IWasmScriptExecutor>();
+        mockExecutor.Setup(e => e.ExecuteScript(It.IsAny<string>()));
 
-        var workerMethods = new WorkerMethods(mockRpc.Object);
+        var workerMethods = new WorkerMethods(mockExecutor.Object);
 
         // Act
         var exception = Record.Exception(() => workerMethods.RunScript(""));
 
         // Assert
-        Assert.Null(exception);
+        Assert.NotNull(exception);
+        Assert.IsType<ArgumentException>(exception);
     }
 
     [Fact]
-    public void RunScript_WithMultipleConsoleLogStatements_CallsHostLogMultipleTimes()
+    public void RunScript_WithMultipleConsoleLogStatements_IsPassedToExecutor()
     {
         // Arrange
-        var mockRpc = new Mock<IRpcClient>();
-        var logCalls = new List<string>();
+        var mockExecutor = new Mock<IWasmScriptExecutor>();
+        mockExecutor.Setup(e => e.ExecuteScript(It.IsAny<string>()));
 
-        mockRpc
-            .Setup(r => r.InvokeAsync<object?>(It.IsAny<string>(), It.IsAny<object?[]?>()))
-            .Callback((string method, object?[]? args) =>
-            {
-                if (method == "Host.Log" && args?.Length > 0)
-                {
-                    logCalls.Add(args[0]?.ToString() ?? "");
-                }
-            })
-            .ReturnsAsync((object?)null);
-
-        var workerMethods = new WorkerMethods(mockRpc.Object);
+        var workerMethods = new WorkerMethods(mockExecutor.Object);
         var codeWithMultipleLogs = @"
 console.log('first');
 console.log('second');
@@ -104,31 +82,17 @@ console.log('third');
         workerMethods.RunScript(codeWithMultipleLogs);
 
         // Assert
-        Assert.Equal(3, logCalls.Count);
-        Assert.Contains("first", logCalls[0]);
-        Assert.Contains("second", logCalls[1]);
-        Assert.Contains("third", logCalls[2]);
+        mockExecutor.Verify(e => e.ExecuteScript(It.IsAny<string>()), Times.Once);
     }
 
     [Fact]
-    public void RunScript_WithJavaScriptArrayOperations_ExecutesSuccessfully()
+    public void RunScript_WithJavaScriptArrayOperations_IsPassedToExecutor()
     {
         // Arrange
-        var mockRpc = new Mock<IRpcClient>();
-        var logCalls = new List<string>();
+        var mockExecutor = new Mock<IWasmScriptExecutor>();
+        mockExecutor.Setup(e => e.ExecuteScript(It.IsAny<string>()));
 
-        mockRpc
-            .Setup(r => r.InvokeAsync<object?>(It.IsAny<string>(), It.IsAny<object?[]?>()))
-            .Callback((string method, object?[]? args) =>
-            {
-                if (method == "Host.Log" && args?.Length > 0)
-                {
-                    logCalls.Add(args[0]?.ToString() ?? "");
-                }
-            })
-            .ReturnsAsync((object?)null);
-
-        var workerMethods = new WorkerMethods(mockRpc.Object);
+        var workerMethods = new WorkerMethods(mockExecutor.Object);
         var complexCode = @"
 let arr = [1, 2, 3, 4, 5];
 let sum = arr.reduce((a, b) => a + b, 0);
@@ -140,28 +104,17 @@ console.log(sum);
 
         // Assert
         Assert.Null(exception);
-        Assert.NotEmpty(logCalls);
+        mockExecutor.Verify(e => e.ExecuteScript(complexCode), Times.Once);
     }
 
     [Fact]
-    public void RunScript_WithLoopAndConditionals_ExecutesSuccessfully()
+    public void RunScript_WithLoopAndConditionals_IsPassedToExecutor()
     {
         // Arrange
-        var mockRpc = new Mock<IRpcClient>();
-        var logCalls = new List<string>();
+        var mockExecutor = new Mock<IWasmScriptExecutor>();
+        mockExecutor.Setup(e => e.ExecuteScript(It.IsAny<string>()));
 
-        mockRpc
-            .Setup(r => r.InvokeAsync<object?>(It.IsAny<string>(), It.IsAny<object?[]?>()))
-            .Callback((string method, object?[]? args) =>
-            {
-                if (method == "Host.Log" && args?.Length > 0)
-                {
-                    logCalls.Add(args[0]?.ToString() ?? "");
-                }
-            })
-            .ReturnsAsync((object?)null);
-
-        var workerMethods = new WorkerMethods(mockRpc.Object);
+        var workerMethods = new WorkerMethods(mockExecutor.Object);
         var codeWithLoop = @"
 for (let i = 0; i < 3; i++) {
     console.log('iteration: ' + i);
@@ -173,19 +126,19 @@ for (let i = 0; i < 3; i++) {
 
         // Assert
         Assert.Null(exception);
-        Assert.Equal(3, logCalls.Count);
+        mockExecutor.Verify(e => e.ExecuteScript(codeWithLoop), Times.Once);
     }
 
     [Fact]
-    public void RunScript_WithInvalidJavaScript_ThrowsInvalidOperationException()
+    public void RunScript_WithInvalidJavaScript_ThrowsFromExecutor()
     {
         // Arrange
-        var mockRpc = new Mock<IRpcClient>();
-        mockRpc
-            .Setup(r => r.InvokeAsync<object?>(It.IsAny<string>(), It.IsAny<object?[]?>()))
-            .ReturnsAsync((object?)null);
+        var mockExecutor = new Mock<IWasmScriptExecutor>();
+        mockExecutor
+            .Setup(e => e.ExecuteScript(It.IsAny<string>()))
+            .Throws(new InvalidOperationException("eval_js failed"));
 
-        var workerMethods = new WorkerMethods(mockRpc.Object);
+        var workerMethods = new WorkerMethods(mockExecutor.Object);
         var invalidCode = "{{invalid js code";
 
         // Act
@@ -197,15 +150,13 @@ for (let i = 0; i < 3; i++) {
     }
 
     [Fact]
-    public void RunScript_WithLargeJavaScriptCode_HandlesMemoryCorrectly()
+    public void RunScript_WithLargeJavaScriptCode_IsPassedToExecutor()
     {
         // Arrange
-        var mockRpc = new Mock<IRpcClient>();
-        mockRpc
-            .Setup(r => r.InvokeAsync<object?>(It.IsAny<string>(), It.IsAny<object?[]?>()))
-            .ReturnsAsync((object?)null);
+        var mockExecutor = new Mock<IWasmScriptExecutor>();
+        mockExecutor.Setup(e => e.ExecuteScript(It.IsAny<string>()));
 
-        var workerMethods = new WorkerMethods(mockRpc.Object);
+        var workerMethods = new WorkerMethods(mockExecutor.Object);
         
         // Create code with a reasonably large string
         var largeCode = @"
@@ -218,5 +169,6 @@ console.log(str.length);
 
         // Assert
         Assert.Null(exception);
+        mockExecutor.Verify(e => e.ExecuteScript(It.IsAny<string>()), Times.Once);
     }
 }
