@@ -46,14 +46,14 @@ public class WorkerMethods
 
     // Host will call "Worker.RunScript" with the JS source
     [JsonRpcMethod("Worker.RunScript")]
-    public void RunScript(string jsCode)
+    public async Task RunScriptAsync(string jsCode)
     {
-        var engine = new Engine();
+        var engine = new Engine(cfg => cfg
+            .AllowClr() // optional if you ever need it
+        );
 
-        // Inject assistantApi into JS runtime
         engine.SetValue("assistantApi", new AssistantApi(_rpc));
 
-        // Execute the script. Convention: script calls run() itself or does everything top-level.
         engine.Execute(jsCode);
     }
 }
@@ -67,16 +67,15 @@ public class AssistantApi
         _rpc = rpc;
     }
 
-    // Called from JS: assistantApi.log("message")
-    public void log(string message)
+    // JS: await assistantApi.log("message");
+    public async Task log(string message)
     {
-        // Synchronous bridge into host JSON-RPC
-        _rpc.InvokeAsync<object>("Host.Log", message).GetAwaiter().GetResult();
+        await _rpc.InvokeAsync<object>("Host.Log", message);
     }
 
-    // Called from JS: var s = assistantApi.add(2, 3);
-    public int add(int a, int b)
+    // JS: const sum = await assistantApi.add(2, 3);
+    public async Task<int> add(int a, int b)
     {
-        return _rpc.InvokeAsync<int>("Host.Add", a, b).GetAwaiter().GetResult();
+        return await _rpc.InvokeAsync<int>("Host.Add", a, b);
     }
 }
