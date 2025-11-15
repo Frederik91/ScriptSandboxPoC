@@ -166,7 +166,7 @@ static JSValue js_console_log(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
-// Install host bridge (console.log, __host_call_json) into the JS context
+// Install host bridge (console.log, __host_call_json, assistantApi) into the JS context
 static int install_host_bridge(JSContext* ctx) {
     JSValue global = JS_GetGlobalObject(ctx);
     if (JS_IsUndefined(global) || JS_IsNull(global)) {
@@ -204,6 +204,40 @@ static int install_host_bridge(JSContext* ctx) {
         return -1;
     }
     JS_SetPropertyStr(ctx, global, "__host_call_json", hostCallFn);
+
+    // Create assistantApi object with helper methods
+    const char* assistantApiCode = 
+        "(function() {\n"
+        "  const assistantApi = {\n"
+        "    add: function(a, b) {\n"
+        "      const request = JSON.stringify({ method: 'Add', args: [a, b] });\n"
+        "      const response = __host_call_json(request);\n"
+        "      const result = JSON.parse(response);\n"
+        "      if (result.error) throw new Error(result.error);\n"
+        "      return result.result;\n"
+        "    },\n"
+        "    subtract: function(a, b) {\n"
+        "      const request = JSON.stringify({ method: 'Subtract', args: [a, b] });\n"
+        "      const response = __host_call_json(request);\n"
+        "      const result = JSON.parse(response);\n"
+        "      if (result.error) throw new Error(result.error);\n"
+        "      return result.result;\n"
+        "    }\n"
+        "  };\n"
+        "  return assistantApi;\n"
+        "})()";
+
+    JSValue assistantApiObj = JS_Eval(ctx, assistantApiCode, strlen(assistantApiCode), 
+                                      "<assistantApi>", JS_EVAL_TYPE_GLOBAL);
+    if (JS_IsException(assistantApiObj)) {
+        JSValue exc = JS_GetException(ctx);
+        capture_exception(ctx, exc);
+        JS_FreeValue(ctx, exc);
+        JS_FreeValue(ctx, global);
+        set_error("Failed to create assistantApi object");
+        return -1;
+    }
+    JS_SetPropertyStr(ctx, global, "assistantApi", assistantApiObj);
 
     JS_FreeValue(ctx, global);
     return 0;
