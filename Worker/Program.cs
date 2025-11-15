@@ -70,7 +70,11 @@ public class WorkerMethods
         public void RunScript(string jsCode)
         {
                 using var engine = new Wasmtime.Engine();
-                var wasmPath = Path.Combine(AppContext.BaseDirectory, "qjs-wasi.wasm");
+                var wasmPath = ResolveWasmPath();
+                if (!File.Exists(wasmPath))
+                {
+                        throw new FileNotFoundException($"WASM module not found at {wasmPath}. Please build the QuickJS WASM module first.");
+                }
                 using var module = Module.FromFile(engine, wasmPath);
                 using var linker = new Linker(engine);
                 using var store = new Store(engine);
@@ -86,59 +90,80 @@ public class WorkerMethods
                 //    Often needed if your QuickJS build is WASI-based.
                 linker.DefineWasi();
 
-                // 2. Define our own host functions that JS will use via assistantApi
-                //    These are the bridge to Host via JSON-RPC
-                linker.Define(
-                "host",
-                "log",
-                Function.FromCallback(
-                        store,
-                        (Caller caller, int ptr, int len) =>
-                        {
-                                var memory = caller.GetMemory("memory")
-                                                ?? throw new InvalidOperationException("No memory export");
-
-                                Span<byte> buffer = stackalloc byte[len];
-
-                                for (var i = 0; i < len; i++)
-                                {
-                                        // Your API: T Memory.Read<T>(long address)
-                                        buffer[i] = memory.Read<byte>(ptr + i);
-                                }
-
-                                var msg = Encoding.UTF8.GetString(buffer);
-                                _rpc.InvokeAsync<object?>("Host.Log", msg).GetAwaiter().GetResult();
-                        }
-                )
-                );
-
+                // 2. Define the generic host.call bridge
+                //    JSON-RPC goes through this single function
                 linker.Define(
                     "host",
-                    "add",
-                    Function.FromCallback(store, (int a, int b) =>
-                    {
-                            return _rpc.InvokeAsync<int>("Host.Add", a, b).GetAwaiter().GetResult();
-                    }));
+                    "call",
+                    Function.FromCallback(
+                        store,
+                        (Caller caller, int inPtr, int inLen, int outPtr, int outCap) =>
+                        {
+                            var memory = caller.GetMemory("memory")
+                                ?? throw new InvalidOperationException("No memory export");
+
+                            // Read input JSON from WASM memory
+                            Span<byte> inBuf = stackalloc byte[inLen];
+                            for (var i = 0; i < inLen; i++)
+                            {
+                                inBuf[i] = memory.Read<byte>(inPtr + i);
+                            }
+
+                            var jsonIn = Encoding.UTF8.GetString(inBuf);
+
+                            // Dispatch to C# and get JSON response
+                            var jsonOut = HandleHostCall(jsonIn);
+                            var outBytes = Encoding.UTF8.GetBytes(jsonOut);
+
+                            // Write output JSON to WASM memory
+                            int bytesToWrite = Math.Min(outBytes.Length, outCap);
+                            for (var i = 0; i < bytesToWrite; i++)
+                            {
+                                memory.Write(outPtr + i, outBytes[i]);
+                            }
+
+                            return bytesToWrite;
+                        }
+                    )
+                );
 
                 // 3. Instantiate QuickJS
                 var instance = linker.Instantiate(store, module);
                 var memory = instance.GetMemory("memory")
                                ?? throw new InvalidOperationException("No memory export");
 
-                var functions = instance.GetFunctions(); // Ensure functions are loaded
-                var init = instance.GetAction("_start");   // or equivalent
-                var eval = instance.GetFunction<int, int, int>("qjs_eval");
+                var eval = instance.GetFunction<int, int, int>("eval_js")
+                           ?? throw new InvalidOperationException("eval_js function not found");
 
-                init?.Invoke();
-
-                // 4. Write jsCode into WASM memory and call qjs_eval
+                // 4. Write jsCode into WASM memory and call eval_js
                 var (ptr, len) = WriteStringToMemory(memory, jsCode);
-                var status = eval!(ptr, len);
+                var status = eval(ptr, len);
+                
+                // Read error message regardless of status
+                var getErrorPtr = instance.GetFunction<int>("get_last_error_ptr")
+                                 ?? throw new InvalidOperationException("get_last_error_ptr function not found");
+                var getErrorLen = instance.GetFunction<int>("get_last_error_len")
+                                 ?? throw new InvalidOperationException("get_last_error_len function not found");
+                
+                int errorPtr = getErrorPtr();
+                int errorLen = getErrorLen();
+                
+                string errorMsg = "";
+                if (errorLen > 0)
+                {
+                    Span<byte> errorBuf = stackalloc byte[errorLen];
+                    for (int i = 0; i < errorLen; i++)
+                    {
+                        errorBuf[i] = memory.Read<byte>(errorPtr + i);
+                    }
+                    errorMsg = Encoding.UTF8.GetString(errorBuf);
+                    System.Console.Error.WriteLine($"WASM eval_js status={status}: {errorMsg}");
+                }
+                
                 if (status != 0)
                 {
-                        throw new InvalidOperationException($"qjs_eval failed with status {status}.");
+                        throw new InvalidOperationException($"eval_js failed with status {status}. Error: {errorMsg}");
                 }
-                eval!.Invoke(ptr, len);
 
                 // 5. (Optional) cleanup / finalize VM
         }
@@ -146,7 +171,15 @@ public class WorkerMethods
         private static (int ptr, int len) WriteStringToMemory(Memory memory, string jsCode)
         {
                 var bytes = Encoding.UTF8.GetBytes(jsCode);
-                const int ptr = 1024; // simple fixed offset for PoC
+                // Start right after the QuickJS runtime structures (typically < 1KB)
+                // Use a smaller offset for smaller WASM modules
+                const int ptr = 0x2000; // 8KB offset - safer default
+                const int maxMemory = 0x100000; // 1MB max for safety
+
+                if (ptr + bytes.Length > maxMemory)
+                {
+                        throw new InvalidOperationException($"Script too large ({bytes.Length} bytes) for available WASM memory");
+                }
 
                 for (var i = 0; i < bytes.Length; i++)
                 {
@@ -154,6 +187,60 @@ public class WorkerMethods
                 }
 
                 return (ptr, bytes.Length);
+        }
+
+        private string HandleHostCall(string json)
+        {
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                var method = doc.RootElement.GetProperty("method").GetString();
+                var args = doc.RootElement.GetProperty("args");
+
+                switch (method)
+                {
+                        case "Log":
+                                var message = args[0].GetString();
+                                _rpc.InvokeAsync<object?>("Host.Log", message!).GetAwaiter().GetResult();
+                                return "{\"result\":null}";
+
+                        case "Add":
+                                var a = args[0].GetInt32();
+                                var b = args[1].GetInt32();
+                                var sum = _rpc.InvokeAsync<int>("Host.Add", a, b).GetAwaiter().GetResult();
+                                return $"{{\"result\":{sum}}}";
+
+                        default:
+                                return "{\"error\":\"Unknown method\"}";
+                }
+        }
+
+        /// <summary>
+        /// Resolves the path to the custom-built WASM module.
+        /// Tries multiple locations: current directory, repo root wasm/, and relative paths.
+        /// </summary>
+        private static string ResolveWasmPath()
+        {
+                // Try relative to output directory
+                var candidates = new[]
+                {
+                        Path.Combine(AppContext.BaseDirectory, "assistant.wasm"),
+                        Path.Combine(AppContext.BaseDirectory, "wasm", "assistant.wasm"),
+                        // Try relative to repo root (for development)
+                        Path.Combine(AppContext.BaseDirectory, "..", "..", "wasm", "assistant.wasm"),
+                        // Absolute from common build location
+                        "/Users/frederik/repos/IsolatedTypeScript/wasm/assistant.wasm",
+                };
+
+                foreach (var path in candidates)
+                {
+                        var fullPath = Path.GetFullPath(path);
+                        if (File.Exists(fullPath))
+                        {
+                                return fullPath;
+                        }
+                }
+
+                // If not found, return the default location with helpful error message
+                return Path.Combine(AppContext.BaseDirectory, "assistant.wasm");
         }
 }
 
