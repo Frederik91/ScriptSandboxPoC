@@ -8,8 +8,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Jint" Version="4.4.2" />
     <PackageReference Include="StreamJsonRpc" Version="2.22.23" />
+    <PackageReference Include="Wasmtime" Version="34.0.2" />
+  </ItemGroup>
+
+  <!-- Ensure quickjs.wasm is copied to the output directory so Module.FromFile can load it at runtime -->
+  <ItemGroup>
+    <Content Include="qjs-wasi.wasm">
+      <Pack>false</Pack>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>
