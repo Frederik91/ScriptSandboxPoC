@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(cd /mnt/c/Users/Frederik\\ Tegnander/source/repos/ScriptSandboxPoC && dotnet test:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(node -c scripts/assistantApi.js)",
+      "Bash(dotnet clean:*)",
+      "Bash(xargs cat:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
