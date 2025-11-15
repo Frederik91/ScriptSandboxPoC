@@ -8,7 +8,7 @@ var workerDir = GetWorkerDirectory();
 var workerDll = Path.Combine(workerDir, "bin", "Debug", "net9.0", "Worker.dll");
 
 // 2. Create named pipes for bidirectional communication
-var pipeName = $"ScriptSandbox_{Guid.NewGuid()}";
+var pipeName = $"ScriptSandbox_{Random.Shared.NextInt64():X16}";
 using var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
 
 // 3. Start Worker process with pipe name
