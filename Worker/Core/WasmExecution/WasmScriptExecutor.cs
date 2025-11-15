@@ -45,7 +45,11 @@ public class WasmScriptExecutor : IWasmScriptExecutor
         var memory = instance.GetMemory(WasmConfiguration.MemoryExportName)
                     ?? throw new InvalidOperationException($"No {WasmConfiguration.MemoryExportName} export found");
 
-        ExecuteEvalFunction(instance, memory, jsCode);
+        // Prepend bootstrap JS before user code
+        var bootstrapJs = LoadBootstrapJs();
+        var fullScript = bootstrapJs + "\n" + jsCode;
+
+        ExecuteEvalFunction(instance, memory, fullScript);
     }
 
     /// <summary>
@@ -209,6 +213,38 @@ public class WasmScriptExecutor : IWasmScriptExecutor
     }
 
     /// <summary>
+    /// Loads the assistantApi bootstrap JavaScript from disk.
+    /// This JS is prepended to all user scripts to provide the high-level API.
+    /// </summary>
+    /// <returns>The bootstrap JavaScript code as a string.</returns>
+    private static string LoadBootstrapJs()
+    {
+        var candidates = new[]
+        {
+            // Relative to output directory
+            Path.Combine(AppContext.BaseDirectory, "assistantApi.js"),
+            Path.Combine(AppContext.BaseDirectory, "scripts", "assistantApi.js"),
+            
+            // Relative to repo root (development)
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "scripts", "assistantApi.js"),
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "scripts", "assistantApi.js"),
+        };
+
+        foreach (var path in candidates)
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (File.Exists(fullPath))
+            {
+                return File.ReadAllText(fullPath);
+            }
+        }
+
+        throw new FileNotFoundException(
+            "assistantApi.js bootstrap file not found. Searched locations:\n" +
+            string.Join("\n", candidates.Select(Path.GetFullPath)));
+    }
+
+    /// <summary>
     /// Resolves the path to the WASM module by checking multiple candidates.
     /// Useful for supporting various deployment and development scenarios.
     /// </summary>
@@ -255,6 +291,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor
             {
                 "Log" => HandleLogCall(args),
                 "Add" => HandleAddCall(args),
+                "Subtract" => HandleSubtractCall(args),
                 _ => $"{{\"error\":\"Unknown method: {method}\"}}"
             };
         }
@@ -283,5 +320,16 @@ public class WasmScriptExecutor : IWasmScriptExecutor
         var b = args[1].GetInt32();
         var sum = _rpc.InvokeAsync<int>("Host.Add", a, b).GetAwaiter().GetResult();
         return $"{{\"result\":{sum}}}";
+    }
+
+    /// <summary>
+    /// Handles the Subtract host call from the sandbox.
+    /// </summary>
+    private string HandleSubtractCall(System.Text.Json.JsonElement args)
+    {
+        var a = args[0].GetInt32();
+        var b = args[1].GetInt32();
+        var difference = a - b; // Simple implementation for demonstration
+        return $"{{\"result\":{difference}}}";
     }
 }

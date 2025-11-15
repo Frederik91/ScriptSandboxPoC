@@ -89,40 +89,47 @@ static void capture_exception(JSContext* ctx, JSValue exc) {
 
 // ---------- JS <-> host_call bridge ----------
 
-// JS signature: __host_call_json(payload: string): string
-// This function is registered as a JavaScript callable and is invoked dynamically
-// from eval_js(), so the unused function warning from the C compiler is a false positive.
-__attribute__((unused))
-static JSValue js_host_call_json(JSContext* ctx,
-                                 JSValueConst this_val,
-                                 int argc,
-                                 JSValueConst* argv)
+// JS signature: __host.bridge(payload: string): string | null
+// This function bridges JavaScript calls to the host via the WASM import.
+// It accepts a JSON string, forwards it to the host, and returns the host's response.
+static JSValue js_bridge_call(JSContext *ctx, JSValueConst this_val,
+                               int argc, JSValueConst *argv)
 {
+    // Validate argument count
     if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "host_call_json: expected 1 argument");
+        return JS_ThrowTypeError(ctx, "bridge requires 1 argument (JSON string)");
     }
-
-    size_t in_len = 0;
-    const char* in_str = JS_ToCStringLen(ctx, &in_len, argv[0]);
-    if (!in_str) {
-        return JS_EXCEPTION;
+    
+    // Extract the JSON payload from the first argument
+    size_t payload_len;
+    const char* payload = JS_ToCStringLen(ctx, &payload_len, argv[0]);
+    if (!payload) {
+        return JS_ThrowTypeError(ctx, "bridge argument must be a string");
     }
-
-    // Fixed-size buffer for PoC. You can grow this or expose a second API
-    // if you need larger payloads later.
-    char out_buf[4096];
-    int written = host_call(in_str, (int)in_len, out_buf, (int)sizeof(out_buf));
-
-    JS_FreeCString(ctx, in_str);
-
-    if (written < 0) {
-        return JS_ThrowInternalError(ctx, "host_call failed with code %d", written);
+    
+    // Prepare output buffer for host response
+    // Using a reasonable fixed size; could be made dynamic if needed
+    char response_buf[4096];
+    
+    // Call the host via WASM import
+    // host_call(input_ptr, input_len, output_ptr, output_capacity)
+    int response_len = host_call(payload, (int)payload_len, response_buf, sizeof(response_buf));
+    
+    // Clean up the input string
+    JS_FreeCString(ctx, payload);
+    
+    // Handle host call errors
+    if (response_len < 0) {
+        return JS_ThrowInternalError(ctx, "Host call failed with error code %d", response_len);
     }
-    if (written > (int)sizeof(out_buf)) {
-        return JS_ThrowInternalError(ctx, "host_call wrote too much data");
+    
+    if (response_len == 0) {
+        // Host returned empty response - return null
+        return JS_NULL;
     }
-
-    return JS_NewStringLen(ctx, out_buf, written);
+    
+    // Return the host's response as a JavaScript string
+    return JS_NewStringLen(ctx, response_buf, response_len);
 }
 
 // Note: Host bridge is installed per-evaluation in eval_js()
@@ -166,7 +173,11 @@ static JSValue js_console_log(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
-// Install host bridge (console.log, __host_call_json, assistantApi) into the JS context
+// ---------- Host bridge installation ----------
+
+// Install host bridge (console.log, __host.bridge) into the JS context.
+// This provides the minimal, stable bridge primitives.
+// Higher-level APIs (assistantApi, etc.) are injected as JS by the host.
 static int install_host_bridge(JSContext* ctx) {
     JSValue global = JS_GetGlobalObject(ctx);
     if (JS_IsUndefined(global) || JS_IsNull(global)) {
@@ -175,7 +186,7 @@ static int install_host_bridge(JSContext* ctx) {
         return -1;
     }
 
-    // console object
+    // -------- Install console.log --------
     JSValue console = JS_NewObject(ctx);
     if (JS_IsException(console)) {
         JS_FreeValue(ctx, global);
@@ -183,7 +194,6 @@ static int install_host_bridge(JSContext* ctx) {
         return -1;
     }
 
-    // console.log
     JSValue logFn = JS_NewCFunction(ctx, js_console_log, "log", 1);
     if (JS_IsException(logFn)) {
         JS_FreeValue(ctx, console);
@@ -192,54 +202,30 @@ static int install_host_bridge(JSContext* ctx) {
         return -1;
     }
     JS_SetPropertyStr(ctx, console, "log", logFn);
-
-    // Attach console to global
     JS_SetPropertyStr(ctx, global, "console", console);
 
-    // Optionally: expose __host_call_json helper
-    JSValue hostCallFn = JS_NewCFunction(ctx, js_host_call_json, "__host_call_json", 1);
-    if (JS_IsException(hostCallFn)) {
+    // -------- Install __host object with functions --------
+    JSValue hostObj = JS_NewObject(ctx);
+    if (JS_IsException(hostObj)) {
         JS_FreeValue(ctx, global);
-        set_error("Failed to create __host_call_json function");
+        set_error("Failed to create __host object");
         return -1;
     }
-    JS_SetPropertyStr(ctx, global, "__host_call_json", hostCallFn);
-
-    // Create assistantApi object with helper methods
-    const char* assistantApiCode = 
-        "(function() {\n"
-        "  const assistantApi = {\n"
-        "    add: function(a, b) {\n"
-        "      const request = JSON.stringify({ method: 'Add', args: [a, b] });\n"
-        "      const response = __host_call_json(request);\n"
-        "      const result = JSON.parse(response);\n"
-        "      if (result.error) throw new Error(result.error);\n"
-        "      return result.result;\n"
-        "    },\n"
-        "    subtract: function(a, b) {\n"
-        "      const request = JSON.stringify({ method: 'Subtract', args: [a, b] });\n"
-        "      const response = __host_call_json(request);\n"
-        "      const result = JSON.parse(response);\n"
-        "      if (result.error) throw new Error(result.error);\n"
-        "      return result.result;\n"
-        "    }\n"
-        "  };\n"
-        "  return assistantApi;\n"
-        "})()";
-
-    JSValue assistantApiObj = JS_Eval(ctx, assistantApiCode, strlen(assistantApiCode), 
-                                      "<assistantApi>", JS_EVAL_TYPE_GLOBAL);
-    if (JS_IsException(assistantApiObj)) {
-        JSValue exc = JS_GetException(ctx);
-        capture_exception(ctx, exc);
-        JS_FreeValue(ctx, exc);
+    
+    // Register bridge function for host communication
+    JSValue bridgeFn = JS_NewCFunction(ctx, js_bridge_call, "bridge", 1);
+    if (JS_IsException(bridgeFn)) {
+        JS_FreeValue(ctx, hostObj);
         JS_FreeValue(ctx, global);
-        set_error("Failed to create assistantApi object");
+        set_error("Failed to create bridge function");
         return -1;
     }
-    JS_SetPropertyStr(ctx, global, "assistantApi", assistantApiObj);
-
+    JS_SetPropertyStr(ctx, hostObj, "bridge", bridgeFn);
+    
+    // Attach __host to global
+    JS_SetPropertyStr(ctx, global, "__host", hostObj);
     JS_FreeValue(ctx, global);
+    
     return 0;
 }
 
@@ -290,6 +276,7 @@ int eval_js(const char* code_ptr, int len)
     }
 
     // Disable stack limit checks for WASI
+    // Setting to 0 disables the check entirely (QuickJS default is very conservative for WASI)
     JS_SetMaxStackSize(rt, 0);
 
     // Install console.log and __host_call_json
@@ -297,12 +284,8 @@ int eval_js(const char* code_ptr, int len)
         // install_host_bridge already set an error message
         JS_FreeContext(ctx);
         JS_FreeRuntime(rt);
-        return 23; // or some new error code if you prefer
+        return 23;
     }
-
-    // Disable stack limit checks (QuickJS default stack limit is very conservative for WASI)
-    // Setting to 0 disables the check entirely
-    JS_SetMaxStackSize(rt, 0);
 
     // Create a null-terminated copy of the code buffer
     // This is necessary because JS_Eval may read past the boundary in certain edge cases
@@ -320,8 +303,9 @@ int eval_js(const char* code_ptr, int len)
     }
     code_copy[len] = '\0';
 
-    // Evaluate the code
-    JSValue result = JS_Eval(ctx, code_copy, len, "eval", JS_EVAL_TYPE_GLOBAL);
+    // Evaluate the code in the existing global scope (no flags = use current context's global)
+    // Note: JS_EVAL_TYPE_GLOBAL creates a NEW global scope, which would lose our bridge functions!
+    JSValue result = JS_Eval(ctx, code_copy, len, "eval", 0);
 
     // Handle evaluation result
     if (JS_IsException(result)) {

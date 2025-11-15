@@ -20,6 +20,14 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>assistant.wasm</Link>
     </Content>
+    
+    <!-- Copy the assistantApi.js bootstrap to output directory.
+         This JS is prepended to user scripts at runtime. -->
+    <Content Include="..\scripts\assistantApi.js" Condition="Exists('..\scripts\assistantApi.js')">
+      <Pack>false</Pack>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>assistantApi.js</Link>
+    </Content>
   </ItemGroup>
 
 </Project>
