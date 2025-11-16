@@ -1,10 +1,8 @@
 name: Build WASM
 
 on:
-  push:
-    branches: [ main, phase2 ]
   pull_request:
-    branches: [ main, phase2 ]
+    branches: [ main ]
 
 env:
   WASI_SDK_VERSION: 28.0
