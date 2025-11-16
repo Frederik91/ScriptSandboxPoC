@@ -121,8 +121,19 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
                     ?? throw new InvalidOperationException($"No {WasmConfiguration.MemoryExportName} export found");
 
         // Prepend bootstrap JS before user code
+        // Wrap user code in an IIFE to ensure its result is returned, not bootstrap code's result
         var bootstrapJs = LoadBootstrapJs();
-        var fullScript = bootstrapJs + "\n" + jsCode;
+        string fullScript;
+        if (string.IsNullOrWhiteSpace(bootstrapJs))
+        {
+            fullScript = jsCode;
+        }
+        else
+        {
+            // Terminate bootstrap with semicolon and wrap user code in IIFE
+            // The IIFE executes the user code and returns the value of the last expression
+            fullScript = $"{bootstrapJs};\n(function() {{\n{jsCode}\n}})()";
+        }
 
         return ExecuteEvalFunction(instance, memory, fullScript);
     }
