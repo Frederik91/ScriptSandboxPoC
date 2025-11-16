@@ -118,6 +118,8 @@ REM NOTE: Using -O0 to diagnose if aggressive size optimization (-Oz) is causing
     -Wl,--export=quickjs_selftest ^
     -Wl,--export=get_last_error_ptr ^
     -Wl,--export=get_last_error_len ^
+    -Wl,--export=get_result_ptr ^
+    -Wl,--export=get_result_len ^
     -Wl,--no-entry ^
     -Wl,--strip-all
 

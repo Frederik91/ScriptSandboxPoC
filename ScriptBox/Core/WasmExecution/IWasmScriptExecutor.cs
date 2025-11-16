@@ -7,12 +7,13 @@ namespace ScriptBox.Core.WasmExecution;
 public interface IWasmScriptExecutor
 {
     /// <summary>
-    /// Executes JavaScript code in the QuickJS WASM sandbox.
+    /// Executes JavaScript code in the QuickJS WASM sandbox and returns the result.
     /// </summary>
     /// <param name="jsCode">The JavaScript source code to execute.</param>
     /// <param name="timeoutMs">Optional timeout in milliseconds. If null, uses the default timeout. Set to 0 for no timeout (use with caution).</param>
+    /// <returns>The result of the JavaScript execution as a string. Primitives are converted to their string representation, objects and arrays are converted to JSON.</returns>
     /// <exception cref="FileNotFoundException">Thrown when the WASM module cannot be located.</exception>
     /// <exception cref="InvalidOperationException">Thrown when WASM initialization or script execution fails.</exception>
     /// <exception cref="TimeoutException">Thrown when script execution exceeds the timeout limit.</exception>
-    void ExecuteScript(string jsCode, int? timeoutMs = null);
+    string ExecuteScript(string jsCode, int? timeoutMs = null);
 }

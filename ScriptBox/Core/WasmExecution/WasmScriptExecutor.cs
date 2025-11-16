@@ -68,7 +68,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
     }
 
     /// <inheritdoc />
-    public void ExecuteScript(string jsCode, int? timeoutMs = null)
+    public string ExecuteScript(string jsCode, int? timeoutMs = null)
     {
         if (string.IsNullOrEmpty(jsCode))
         {
@@ -90,6 +90,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
                         $"Script execution exceeded timeout limit of {effectiveTimeout}ms. " +
                         "The script may have an infinite loop or is taking too long to complete.");
                 }
+                return task.Result;
             }
             catch (AggregateException ae)
             {
@@ -100,14 +101,14 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
         else
         {
             // No timeout - execute directly
-            ExecuteScriptInternal(jsCode);
+            return ExecuteScriptInternal(jsCode);
         }
     }
 
     /// <summary>
     /// Internal method that performs the actual script execution without timeout handling.
     /// </summary>
-    private void ExecuteScriptInternal(string jsCode)
+    private string ExecuteScriptInternal(string jsCode)
     {
         using var linker = new Linker(_engine);
         using var store = new Store(_engine);
@@ -123,7 +124,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
         var bootstrapJs = LoadBootstrapJs();
         var fullScript = bootstrapJs + "\n" + jsCode;
 
-        ExecuteEvalFunction(instance, memory, fullScript);
+        return ExecuteEvalFunction(instance, memory, fullScript);
     }
 
     /// <summary>
@@ -202,7 +203,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
     /// <summary>
     /// Executes the eval_js WASM function and checks for errors.
     /// </summary>
-    private void ExecuteEvalFunction(Instance instance, Memory memory, string jsCode)
+    private string ExecuteEvalFunction(Instance instance, Memory memory, string jsCode)
     {
         var (ptr, len) = WriteStringToMemory(memory, jsCode);
 
@@ -211,14 +212,17 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
                       $"{WasmConfiguration.EvalFunctionName} function not found");
 
         var status = eval(ptr, len);
-        var errorMessage = ReadErrorMessage(instance, memory);
 
         if (status != WasmConfiguration.SuccessStatusCode)
         {
+            var errorMessage = ReadErrorMessage(instance, memory);
             System.Console.Error.WriteLine($"WASM eval_js status={status}: {errorMessage}");
             throw new InvalidOperationException(
                 $"eval_js failed with status {status}. Error: {errorMessage}");
         }
+
+        // Success - read the result
+        return ReadResultMessage(instance, memory);
     }
 
     /// <summary>
@@ -242,6 +246,29 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
         }
 
         return ReadStringFromMemory(memory, errorPtr, errorLen);
+    }
+
+    /// <summary>
+    /// Reads the result value from WASM memory after successful evaluation.
+    /// </summary>
+    private string ReadResultMessage(Instance instance, Memory memory)
+    {
+        var getResultPtr = instance.GetFunction<int>(WasmConfiguration.GetResultPtrFunctionName)
+                          ?? throw new InvalidOperationException(
+                              $"{WasmConfiguration.GetResultPtrFunctionName} function not found");
+        var getResultLen = instance.GetFunction<int>(WasmConfiguration.GetResultLenFunctionName)
+                          ?? throw new InvalidOperationException(
+                              $"{WasmConfiguration.GetResultLenFunctionName} function not found");
+
+        int resultPtr = getResultPtr();
+        int resultLen = getResultLen();
+
+        if (resultLen <= 0)
+        {
+            return string.Empty;
+        }
+
+        return ReadStringFromMemory(memory, resultPtr, resultLen);
     }
 
     /// <summary>

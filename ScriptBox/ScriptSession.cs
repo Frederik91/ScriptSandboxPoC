@@ -38,10 +38,10 @@ public sealed class ScriptSession : IAsyncDisposable
             : string.Concat(_bootstrapCode, "\n", userScript);
 
         var timeoutMs = ConvertTimeoutToMilliseconds(_timeout);
-        _executor.ExecuteScript(script, timeoutMs);
+        var result = _executor.ExecuteScript(script, timeoutMs);
 
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult<object?>(null);
+        return Task.FromResult<object?>(result);
     }
 
     public ValueTask DisposeAsync()

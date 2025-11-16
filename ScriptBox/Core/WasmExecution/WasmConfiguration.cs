@@ -39,6 +39,16 @@ public static class WasmConfiguration
     public const string GetErrorLenFunctionName = "get_last_error_len";
 
     /// <summary>
+    /// WASM function name for retrieving result buffer pointer.
+    /// </summary>
+    public const string GetResultPtrFunctionName = "get_result_ptr";
+
+    /// <summary>
+    /// WASM function name for retrieving result buffer length.
+    /// </summary>
+    public const string GetResultLenFunctionName = "get_result_len";
+
+    /// <summary>
     /// Success status code returned by eval_js.
     /// </summary>
     public const int SuccessStatusCode = 0;
