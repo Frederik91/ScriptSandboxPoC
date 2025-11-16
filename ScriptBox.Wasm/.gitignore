@@ -1,0 +1,12 @@
+# Build outputs
+assistant.wasm
+build/
+
+# QuickJS source (will be cloned during build)
+quickjs/
+
+# Editor files
+.DS_Store
+*.swp
+*.swo
+*~

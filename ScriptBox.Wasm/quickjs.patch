@@ -1,0 +1,11 @@
+--- a/quickjs.c
++++ b/quickjs.c
+@@ -1720,6 +1720,8 @@ static size_t js_def_malloc_usable_size(const void *ptr)
+     return malloc_size(ptr);
+ #elif defined(_WIN32)
+     return _msize((void *)ptr);
++#elif defined(__wasi__)
++    return 0;
+ #elif defined(EMSCRIPTEN)
+     return 0;
+ #elif defined(__linux__) || defined(__GLIBC__)

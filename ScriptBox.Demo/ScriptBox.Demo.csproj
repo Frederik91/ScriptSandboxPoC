@@ -8,8 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Jint" Version="4.4.2" />
-    <PackageReference Include="StreamJsonRpc" Version="2.22.23" />
+    <ProjectReference Include="..\ScriptBox.Net\ScriptBox.Net.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="scripts\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
