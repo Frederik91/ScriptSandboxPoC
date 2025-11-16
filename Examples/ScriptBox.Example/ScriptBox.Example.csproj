@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ScriptBox\ScriptBox.csproj" />
+    <ProjectReference Include="..\..\ScriptBox\ScriptBox.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -7,4 +7,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\ScriptBox\ScriptBox.csproj" />
+    <ProjectReference Include="..\..\ScriptBox.SemanticKernel\ScriptBox.SemanticKernel.csproj" />
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.67.1" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.Ollama" Version="1.67.1-alpha" />
+    <PackageReference Include="OllamaSharp" Version="5.4.11" />
+  </ItemGroup>
+
 </Project>
