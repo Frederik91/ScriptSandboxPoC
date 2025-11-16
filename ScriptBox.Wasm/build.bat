@@ -67,27 +67,22 @@ if not exist "%QUICKJS_DIR%" (
     echo [+] QuickJS source found at: %QUICKJS_DIR%
 )
 
-REM Apply patches to QuickJS for WASI compatibility
-if exist "%SCRIPT_DIR%quickjs.patch" (
-    echo [*] Applying WASI compatibility patches...
-    pushd "%QUICKJS_DIR%"
-    REM Try to reverse any previously applied patch (ignore errors)
-    git apply --reverse --check "%SCRIPT_DIR%quickjs.patch" >nul 2>&1
-    if not errorlevel 1 (
-        git apply --reverse "%SCRIPT_DIR%quickjs.patch" >nul 2>&1
-    )
-    REM Apply the patch
-    git apply "%SCRIPT_DIR%quickjs.patch" >nul 2>&1
-    if errorlevel 1 (
-        patch -p1 < "%SCRIPT_DIR%quickjs.patch" >nul 2>&1
-        if errorlevel 1 (
-            echo [*] Patch failed, applying manual fixes via PowerShell...
-            REM Use a simple sed-like replacement for both fixes
-            powershell -NoProfile -Command "& { $content = Get-Content 'quickjs.c' -Raw; $content = $content -replace 'QuickJS memory usage -- \" CONFIG_VERSION \" version', 'QuickJS memory usage -- version'; if ($content -notmatch '__wasi__') { $pattern = '#elif defined\(_WIN32\)\s*\n\s*return _msize\(\(void \*\)ptr\);'; $replacement = '$0' + [System.Environment]::NewLine + '#elif defined(__wasi__)' + [System.Environment]::NewLine + '    return 0;'; $content = $content -replace $pattern, $replacement; } $content | Set-Content 'quickjs.c' -Encoding UTF8; Write-Output '[+] Applied manual fixes' }"
-        )
-    )
-    popd
-)
+REM Apply manual fixes to QuickJS for WASI compatibility
+REM These fixes replace the unreliable patch file with direct edits
+echo [*] Applying WASI compatibility fixes...
+pushd "%QUICKJS_DIR%"
+
+REM Fix 1: Fix the CONFIG_VERSION string concatenation issue
+REM The issue is: fprintf(fp, "QuickJS memory usage -- " CONFIG_VERSION " version, ...
+REM This fails because CONFIG_VERSION is a macro and can't be stringified inline
+REM Replace with a simpler format string that doesn't try to embed the macro
+powershell -NoProfile -Command "& { $content = Get-Content 'quickjs.c' -Raw; $content = $content -replace 'fprintf\(fp, \"QuickJS memory usage -- \"\" CONFIG_VERSION \"\" version,', 'fprintf(fp, \"QuickJS memory usage -- version,'; $content | Set-Content 'quickjs.c' -Encoding UTF8 }" 2>nul
+
+REM Fix 2: Add __wasi__ conditional to js_def_malloc_usable_size
+REM This prevents WASI builds from trying to use platform-specific malloc_size functions
+powershell -NoProfile -Command "& { $content = Get-Content 'quickjs.c' -Raw; if ($content -notmatch '__wasi__') { $pattern = '(#elif defined\(_WIN32\)\s+return _msize\(\(void \*\)ptr\);)'; $replacement = "`$1`r`n#elif defined(__wasi__)`r`n    return 0;"; $content = $content -replace $pattern, $replacement; $content | Set-Content 'quickjs.c' -Encoding UTF8; Write-Output '[+] Applied manual fixes' } else { Write-Output '[+] Fixes already applied' } }" 2>nul
+
+popd
 
 REM Create build directory
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
