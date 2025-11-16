@@ -1,4 +1,4 @@
-using ScriptBox.Net.Core.Runtime;
+using ScriptBox.Core.Runtime;
 
 namespace ScriptBox.Demo;
 

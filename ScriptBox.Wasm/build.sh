@@ -145,7 +145,7 @@ if [ $? -eq 0 ]; then
     echo "🔧 WASI SDK: $WASI_SDK_PATH"
     echo ""
     echo "Next steps:"
-    echo "  1. Rebuild ScriptBox.Net: dotnet build ScriptBox.Net/ScriptBox.Net.csproj"
+    echo "  1. Rebuild ScriptBox: dotnet build ScriptBox/ScriptBox.csproj"
     echo "  2. Run the demo: dotnet run --project ScriptBox.Demo/ScriptBox.Demo.csproj"
 else
     echo ""

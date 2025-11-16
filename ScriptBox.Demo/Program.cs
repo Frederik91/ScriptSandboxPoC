@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using ScriptBox.Demo;
-using ScriptBox.Net;
-using ScriptBox.Net.Core.Configuration;
+using ScriptBox;
+using ScriptBox.Core.Configuration;
 
 Console.WriteLine("=== ScriptBox Demo ===");
 
@@ -17,7 +17,7 @@ var sandboxConfig = new SandboxConfiguration
 var scriptBox = ScriptBoxBuilder
     .Create()
     .WithSandboxConfiguration(sandboxConfig)
-    .UseAttributedApis(typeof(DemoCalculatorApi).Assembly)
+    .RegisterApisFrom(typeof(DemoCalculatorApi))
     .WithDefaultTimeout(TimeSpan.FromSeconds(5))
     .Build();
 
