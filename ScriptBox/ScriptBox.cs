@@ -8,10 +8,10 @@ namespace ScriptBox;
 /// instance share the underlying WASM module and host bridge configuration.
 /// </summary>
 #if NET6_0_OR_GREATER
-public sealed class ScriptBox : IAsyncDisposable
+public sealed class ScriptBox : IScriptBox, IAsyncDisposable
 {
 #else
-public sealed class ScriptBox : IDisposable
+public sealed class ScriptBox : IScriptBox, IDisposable
 {
 #endif
     private readonly WasmScriptExecutor _executor;

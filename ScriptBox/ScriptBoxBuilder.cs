@@ -145,7 +145,7 @@ public sealed class ScriptBoxBuilder
         return this;
     }
 
-    public ScriptBox Build()
+    public IScriptBox Build()
     {
         ProcessAttributedApis();
 
