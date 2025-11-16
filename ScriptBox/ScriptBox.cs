@@ -7,8 +7,13 @@ namespace ScriptBox;
 /// Represents a compiled ScriptBox runtime. Sessions created from the same
 /// instance share the underlying WASM module and host bridge configuration.
 /// </summary>
+#if NET6_0_OR_GREATER
 public sealed class ScriptBox : IAsyncDisposable
 {
+#else
+public sealed class ScriptBox : IDisposable
+{
+#endif
     private readonly WasmScriptExecutor _executor;
     private readonly string _bootstrapCode;
     private readonly TimeSpan _defaultTimeout;
@@ -31,8 +36,15 @@ public sealed class ScriptBox : IAsyncDisposable
             timeout ?? _defaultTimeout);
     }
 
+#if NET6_0_OR_GREATER
     public ValueTask DisposeAsync()
     {
         return _executor.DisposeAsync();
     }
+#else
+    public void Dispose()
+    {
+        _executor.Dispose();
+    }
+#endif
 }

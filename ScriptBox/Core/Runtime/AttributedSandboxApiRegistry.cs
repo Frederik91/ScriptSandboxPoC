@@ -164,7 +164,11 @@ internal static class AttributedSandboxApiRegistry
                 await task.ConfigureAwait(false);
                 return null;
             case ValueTask valueTask:
+#if NET6_0_OR_GREATER
                 await valueTask.ConfigureAwait(false);
+#else
+                await valueTask.AsTask().ConfigureAwait(false);
+#endif
                 return null;
             default:
                 var type = result.GetType();

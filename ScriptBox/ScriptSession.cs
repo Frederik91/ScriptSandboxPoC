@@ -48,6 +48,8 @@ public sealed class ScriptSession : IAsyncDisposable
     {
 #if NETSTANDARD2_0
         return default;
+#elif NETSTANDARD2_1
+        return new ValueTask(Task.CompletedTask);
 #else
         return ValueTask.CompletedTask;
 #endif

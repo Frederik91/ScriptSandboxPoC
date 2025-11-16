@@ -54,7 +54,7 @@ public class ScriptBoxBuilderTests
     {
         await using var scriptBox = ScriptBoxBuilder
             .Create()
-            .RegisterApisFrom<AttributedCalculatorApi>()
+            .RegisterApisFrom(typeof(AttributedCalculatorApi))
             .Build();
 
         await using var session = scriptBox.CreateSession();
@@ -70,8 +70,8 @@ if (result !== 5) {
     {
         await using var scriptBox = ScriptBoxBuilder
             .Create()
-            .RegisterApisFrom<AttributedCalculatorApi>()
-            .RegisterApisFrom<AttributedCalculatorApi>()
+            .RegisterApisFrom(typeof(AttributedCalculatorApi))
+            .RegisterApisFrom(typeof(AttributedCalculatorApi))
             .Build();
 
         await using var session = scriptBox.CreateSession();

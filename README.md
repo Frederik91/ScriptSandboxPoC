@@ -24,7 +24,7 @@ public static class CalculatorApi
 
 var sandbox = ScriptBoxBuilder
     .Create()
-    .RegisterApisFrom<CalculatorApi>()       // static API, no DI needed
+    .RegisterApisFrom(typeof(CalculatorApi)) // static API, no DI needed
     .Build();
 
 await using var session = sandbox.CreateSession();

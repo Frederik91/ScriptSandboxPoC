@@ -14,14 +14,30 @@
     <IncludeSymbols>false</IncludeSymbols>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <LangVersion>latest</LangVersion>
+    <!-- Suppress type conflict warnings from polyfills -->
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
   </PropertyGroup>
 
 
   <ItemGroup>
+    <PackageReference Include="PolySharp" Version="1.15.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Wasmtime" Version="34.0.2" />
+  </ItemGroup>
+
+  <!-- Exclude polyfills for frameworks that have built-in async types -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.0'">
+    <Compile Remove="Polyfills\Netstandard20AsyncPolyfills.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netstandard2.1'">
+    <PackageReference Include="System.Text.Json" Version="4.6.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.0' and '$(TargetFramework)' != 'netstandard2.1'">
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" />
-    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
   </ItemGroup>
 
   <!-- Copy the custom-built QuickJS WASM module to output directory.
@@ -47,12 +63,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\scripts\sdk\scriptbox.js"
-                      Condition="Exists('..\scripts\sdk\scriptbox.js')"
-                      LogicalName="ScriptBox.Js.sandbox-api.js" />
-    <EmbeddedResource Include="..\ScriptBox.Wasm\scriptbox.wasm"
-                      Condition="Exists('..\ScriptBox.Wasm\scriptbox.wasm')"
-                      LogicalName="ScriptBox.Wasm.scriptbox.wasm" />
+    <EmbeddedResource Include="..\scripts\sdk\scriptbox.js" Condition="Exists('..\scripts\sdk\scriptbox.js')" LogicalName="ScriptBox.Js.sandbox-api.js" />
+    <EmbeddedResource Include="..\ScriptBox.Wasm\scriptbox.wasm" Condition="Exists('..\ScriptBox.Wasm\scriptbox.wasm')" LogicalName="ScriptBox.Wasm.scriptbox.wasm" />
   </ItemGroup>
 
 </Project>

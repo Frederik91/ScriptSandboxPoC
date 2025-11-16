@@ -12,17 +12,19 @@ namespace ScriptBox.Core.WasmExecution;
 /// Executes JavaScript code within a QuickJS-in-WASM sandbox.
 /// Manages WASM module lifecycle, memory operations, and error handling.
 /// </summary>
+#if NET6_0_OR_GREATER
 public class WasmScriptExecutor : IWasmScriptExecutor, IAsyncDisposable
 {
+#else
+public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
+{
+#endif
     private readonly IHostApi _hostApi;
     private readonly SandboxConfiguration _config;
     private readonly Dictionary<string, Func<HostCallContext, Task<object?>>> _jsonHandlers;
     private readonly Engine _engine;
     private readonly Module _module;
-    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        PropertyNameCaseInsensitive = true
-    };
+    private readonly JsonSerializerOptions _jsonOptions;
     private readonly WasmModuleSource _moduleSource;
     private bool _disposed;
 
@@ -45,6 +47,19 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IAsyncDisposable
         _moduleSource = moduleSource ?? WasmModuleSource.FromBytes(DefaultRuntimeResources.LoadEmbeddedWasm());
         _engine = new Engine();
         _module = _moduleSource.CreateModule(_engine);
+        
+        // Initialize JSON serializer options with appropriate settings for the target framework
+#if NET6_0_OR_GREATER
+        _jsonOptions = new(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        };
+#else
+        _jsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
+#endif
     }
 
     public WasmScriptExecutor(SandboxConfiguration? config)
@@ -484,24 +499,30 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IAsyncDisposable
     }
 
     #endregion
+#if NET6_0_OR_GREATER
     public ValueTask DisposeAsync()
     {
         if (_disposed)
         {
-#if NETSTANDARD2_0
-            return default;
-#else
-            return ValueTask.CompletedTask;
-#endif
+            return default(ValueTask);
         }
 
         _module.Dispose();
         _engine.Dispose();
         _disposed = true;
-#if NETSTANDARD2_0
-        return default;
-#else
-        return ValueTask.CompletedTask;
-#endif
+        return default(ValueTask);
     }
+#else
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _module.Dispose();
+        _engine.Dispose();
+        _disposed = true;
+    }
+#endif
 }
