@@ -130,9 +130,9 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
         }
         else
         {
-            // Terminate bootstrap, add void 0 to ensure no return value from bootstrap,
-            // then wrap user code in parens to evaluate it as an expression
-            fullScript = $"{bootstrapJs};\nvoid 0;\n({jsCode})";
+            // Terminate bootstrap, add void 0 to discard any bootstrap return value,
+            // then execute user code - JavaScript returns the value of the last expression
+            fullScript = $"{bootstrapJs};\nvoid 0;\n{jsCode}";
         }
 
         return ExecuteEvalFunction(instance, memory, fullScript);
