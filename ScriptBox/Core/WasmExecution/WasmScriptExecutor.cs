@@ -121,7 +121,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
                     ?? throw new InvalidOperationException($"No {WasmConfiguration.MemoryExportName} export found");
 
         // Prepend bootstrap JS before user code
-        // Use eval() to ensure user code result is returned, not bootstrap code's result
+        // Add void expression to discard bootstrap result, then evaluate user code
         var bootstrapJs = LoadBootstrapJs();
         string fullScript;
         if (string.IsNullOrWhiteSpace(bootstrapJs))
@@ -130,11 +130,9 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
         }
         else
         {
-            // Terminate bootstrap with semicolon and eval the user code
-            // eval() returns the value of the last expression in the user code
-            // We use JSON serialization to properly escape the user code as a string literal
-            var escapedCode = JsonSerializer.Serialize(jsCode, _jsonOptions);
-            fullScript = $"{bootstrapJs};\neval({escapedCode})";
+            // Terminate bootstrap, add void 0 to ensure no return value from bootstrap,
+            // then wrap user code in parens to evaluate it as an expression
+            fullScript = $"{bootstrapJs};\nvoid 0;\n({jsCode})";
         }
 
         return ExecuteEvalFunction(instance, memory, fullScript);
