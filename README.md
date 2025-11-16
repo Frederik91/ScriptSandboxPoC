@@ -8,6 +8,7 @@ ScriptBox is a reusable QuickJS-in-WASM sandbox for .NET. It lets you run untrus
 | ------- | ----------- |
 | `ScriptBox` | Core runtime, builder, WASM bridge, attribute-based API discovery |
 | `ScriptBox.DependencyInjection` | Optional helpers that wire `ScriptBoxBuilder` into `Microsoft.Extensions.DependencyInjection` |
+| `ScriptBox.SemanticKernel` | Semantic Kernel integration (plugin registration, `run_js` tool, TypeScript declarations) |
 
 ## Quick Start (without DI)
 
@@ -101,6 +102,40 @@ public class ScriptRunner
 ```
 
 This interface makes it easier to mock `ScriptBox` in unit tests.
+
+## Semantic Kernel Integration
+
+Install the additional package when you want Semantic Kernel agents to call ScriptBox through a single tool:
+
+```xml
+<PackageReference Include="ScriptBox.SemanticKernel" Version="*" />
+```
+
+Reuse your `[KernelFunction]` plugins as ScriptBox host namespaces:
+
+```csharp
+using Microsoft.SemanticKernel;
+using ScriptBox.SemanticKernel;
+
+public sealed class MathPlugin
+{
+    [KernelFunction("add")]
+    public Task<int> AddAsync(int a, int b) => Task.FromResult(a + b);
+}
+
+var builder = ScriptBoxBuilder.Create();
+var mathNamespace = builder.RegisterSemanticKernelPlugin<MathPlugin>("math");
+await using var scriptBox = builder.Build();
+
+// Provide strongly typed JS hints to the AI
+var declarations = SemanticKernelTypeScriptGenerator.Generate(new[] { mathNamespace });
+File.WriteAllText("scriptbox.generated.d.ts", declarations);
+
+// Wire the single SK tool
+var scriptBoxPlugin = new ScriptBoxPlugin(scriptBox);
+```
+
+The generated declaration file contains one interface per namespace plus matching global variables (`math` in the example). In SK orchestration you send this `.d.ts` contents to the model, the model emits JavaScript that relies on those namespaces, and then you call `await scriptBoxPlugin.RunJavaScriptAsync(code, inputJson)` to execute it safely.
 
 ## Host API design
 
