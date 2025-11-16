@@ -77,7 +77,9 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build ScriptBox.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test --configuration Release --no-build --verbosity normal
+        run: |
+          dotnet test ScriptBox.Tests/ScriptBox.Tests.csproj --configuration Release --no-build --verbosity normal
+          dotnet test ScriptBox.SemanticKernel.Tests/ScriptBox.SemanticKernel.Tests.csproj --configuration Release --no-build --verbosity normal

@@ -8,6 +8,7 @@ ScriptBox is a reusable QuickJS-in-WASM sandbox for .NET. It lets you run untrus
 | ------- | ----------- |
 | `ScriptBox` | Core runtime, builder, WASM bridge, attribute-based API discovery |
 | `ScriptBox.DependencyInjection` | Optional helpers that wire `ScriptBoxBuilder` into `Microsoft.Extensions.DependencyInjection` |
+| `ScriptBox.SemanticKernel` | Semantic Kernel integration (plugin registration, `run_js` tool, TypeScript declarations) |
 
 ## Quick Start (without DI)
 
@@ -101,6 +102,64 @@ public class ScriptRunner
 ```
 
 This interface makes it easier to mock `ScriptBox` in unit tests.
+
+## Semantic Kernel Integration
+
+Install the additional package when you want Semantic Kernel agents to call ScriptBox through a single tool:
+
+```xml
+<PackageReference Include="ScriptBox.SemanticKernel" Version="*" />
+```
+
+The snippet below distills the approach used in `Examples/Scriptbox.SemanticKernel.Example`: register a Semantic Kernel plugin as a ScriptBox namespace, expose it through the `scriptbox.run_js` tool, and keep both sides strongly typed.
+
+```csharp
+using System.ComponentModel;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+using ScriptBox.SemanticKernel;
+
+var builder = Kernel.CreateBuilder();
+
+// Register your preferred chat completion connector (Azure OpenAI, OpenAI, local LLM, etc.)
+// Example: builder.AddAzureOpenAIChatCompletion(deploymentName, endpoint, apiKey);
+
+builder.AddScriptBox(scriptBox =>
+{
+    // Register plugins to make available as js apis
+    scriptBox.RegisterSemanticKernelPlugin<ClockPlugin>("time");
+});
+
+var kernel = builder.Build();
+
+var chat = kernel.GetRequiredService<IChatCompletionService>();
+var response = await chat.GetChatMessageContentsAsync(
+    new ChatHistory("Call scriptbox.run_js with `time.get_current_time()` and report the result."),
+    executionSettings: null, // supply your connector's "auto tool" settings here
+    kernel);
+
+Console.WriteLine(response.LastOrDefault()?.Content);
+
+public sealed class ClockPlugin
+{
+    [KernelFunction("get_current_time")]
+    [Description("Returns the current UTC time in ISO-8601 format.")]
+    public Task<string> GetCurrentTimeAsync()
+    {
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        return Task.FromResult(now);
+    }
+}
+```
+
+This highlights the important parts—wiring ScriptBox into Semantic Kernel, registering plugins as namespaces, and letting the LLM choose the `scriptbox.run_js` function. Check the full example in `Examples/Scriptbox.SemanticKernel.Example` if you need a complete console app with extra logging and prompt helpers.
+
+If you still need to feed type information to the LLM, call `SemanticKernelTypeScriptGenerator.Generate(...)` with the namespaces returned from `RegisterSemanticKernelPlugin` and send the resulting `.d.ts` file alongside the instructions.
+
+The generated declaration file contains one interface per namespace plus matching global variables (`time` in the example). In SK orchestration you send this `.d.ts` contents to the model, the model emits JavaScript that relies on those namespaces, and then you call `await scriptBoxPlugin.RunJavaScriptAsync(code, inputJson)` (or the `scriptbox.run_js` tool) to execute it safely.
+
+Need a working sample? `Examples/Scriptbox.SemanticKernel.Example/Program.cs` spins up a Semantic Kernel configured with a chat completion service, wires ScriptBox through `KernelSetup.AddScriptBox`, registers a `ClockPlugin` namespace, and then invokes a tool helper that asks the model to call back into `describeCurrentTime` via JavaScript. Run it to see an end-to-end Semantic Kernel ↔ ScriptBox loop.
 
 ## Host API design
 
