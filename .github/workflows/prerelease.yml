@@ -1,0 +1,56 @@
+name: Prerelease NuGet
+
+on:
+  push:
+    tags:
+      - "v*-alpha.*"
+      - "v*-beta.*"
+      - "v*-rc.*"
+
+jobs:
+  publish-prerelease:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Using version $VERSION"
+
+      - name: Pack ScriptBox
+        run: |
+          dotnet pack ScriptBox/ScriptBox.csproj \
+            --configuration Release \
+            --output out \
+            /p:PackageVersion=${{ env.PACKAGE_VERSION }}
+
+      - name: Pack ScriptBox.DependencyInjection
+        run: |
+          dotnet pack ScriptBox.DependencyInjection/ScriptBox.DependencyInjection.csproj \
+            --configuration Release \
+            --output out \
+            /p:PackageVersion=${{ env.PACKAGE_VERSION }}
+
+      - name: Push to nuget.org
+        run: |
+          dotnet nuget push "out/*.nupkg" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key "${{ secrets.NUGET_API_KEY }}" \
+            --skip-duplicate

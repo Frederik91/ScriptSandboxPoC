@@ -45,7 +45,7 @@ This produces `scriptbox.wasm` (~200-300KB).
 
 When you rebuild the Worker project:
 ```bash
-dotnet build ScriptBox.Net/ScriptBox.Net.csproj
+dotnet build ScriptBox/ScriptBox.csproj
 ```
 
 It copies `scriptbox.wasm` to the output directory.
@@ -165,7 +165,7 @@ To add a new method like `scriptbox.divide(a, b)`:
 3. **Rebuild**:
    ```bash
    ./build.sh
-   dotnet build ScriptBox.Net/ScriptBox.Net.csproj
+   dotnet build ScriptBox/ScriptBox.csproj
    ```
 
 That's it! No additional C functions or glue code needed.

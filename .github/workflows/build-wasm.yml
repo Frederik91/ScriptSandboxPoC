@@ -1,0 +1,82 @@
+name: Build WASM
+
+on:
+  pull_request:
+    branches: [ main ]
+
+env:
+  WASI_SDK_VERSION: 28.0
+  WASI_SDK_NAME: wasi-sdk-28.0
+  WASI_SDK_ARCHIVE: wasi-sdk-28.0-linux.tar.gz
+  WASI_SDK_URL: https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-28/wasi-sdk-28.0-x86_64-linux.tar.gz
+
+jobs:
+  build-wasm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Cache the extracted SDK to speed up builds
+      - name: Cache WASI SDK
+        uses: actions/cache@v4
+        id: cache-wasi
+        with:
+          path: wasi-sdk
+          key: wasi-sdk-${{ env.WASI_SDK_VERSION }}-linux
+
+      - name: Download WASI SDK
+        if: steps.cache-wasi.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p wasi-sdk
+          curl -L "${{ env.WASI_SDK_URL }}" -o wasi-sdk.tar.gz
+          tar -xzf wasi-sdk.tar.gz --strip-components=1 -C wasi-sdk
+          rm wasi-sdk.tar.gz
+
+      - name: Set WASI_SDK_PATH
+        run: echo "WASI_SDK_PATH=$PWD/wasi-sdk" >> $GITHUB_ENV
+
+      - name: Make build script executable
+        run: chmod +x ScriptBox.Wasm/build.sh
+
+      - name: Build WASM module
+        working-directory: ScriptBox.Wasm
+        run: ./build.sh
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scriptbox-wasm
+          path: ScriptBox.Wasm/scriptbox.wasm
+          retention-days: 30
+
+  build-and-test:
+    needs: build-wasm
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download WASM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: scriptbox-wasm
+          path: ScriptBox.Wasm/
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal

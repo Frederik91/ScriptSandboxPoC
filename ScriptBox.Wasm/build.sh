@@ -87,16 +87,27 @@ else
     echo "✓ QuickJS source found at: $QUICKJS_DIR"
 fi
 
-# Apply patches to QuickJS for WASI compatibility
-if [ -f "$SCRIPT_DIR/quickjs.patch" ]; then
-    echo "🔧 Applying WASI compatibility patches..."
-    cd "$QUICKJS_DIR"
-    # Remove patch first if it was already applied
-    git apply --reverse --check "$SCRIPT_DIR/quickjs.patch" 2>/dev/null && git apply --reverse "$SCRIPT_DIR/quickjs.patch" 2>/dev/null || true
-    # Apply the patch
-    git apply "$SCRIPT_DIR/quickjs.patch" 2>/dev/null || patch -p1 < "$SCRIPT_DIR/quickjs.patch" 2>/dev/null || true
-    cd - > /dev/null
+# Apply manual fixes to QuickJS for WASI compatibility
+# These fixes replace the unreliable patch file with direct sed edits
+echo "🔧 Applying WASI compatibility fixes..."
+cd "$QUICKJS_DIR"
+
+# Fix 1: Add __wasi__ conditional to js_def_malloc_usable_size
+# This prevents WASI builds from trying to use platform-specific malloc_size functions
+if ! grep -q "__wasi__" quickjs.c; then
+    # Use sed to find the _WIN32 section and add __wasi__ case after it
+    sed -i.bak '/#elif defined(_WIN32)/a\
+#elif defined(__wasi__)\
+    return 0;' quickjs.c 2>/dev/null || true
 fi
+
+# Fix 2: Fix the CONFIG_VERSION string concatenation issue
+# The issue is: fprintf(fp, "QuickJS memory usage -- " CONFIG_VERSION " version, ...
+# This fails because CONFIG_VERSION is a macro and can't be stringified inline
+# Replace with a simpler format string that doesn't try to embed the macro
+sed -i 's/fprintf(fp, "QuickJS memory usage -- " CONFIG_VERSION " version,/fprintf(fp, "QuickJS memory usage -- version,/g' quickjs.c 2>/dev/null || true
+
+cd - > /dev/null
 
 # Create build directory
 mkdir -p "$BUILD_DIR"
@@ -145,7 +156,7 @@ if [ $? -eq 0 ]; then
     echo "🔧 WASI SDK: $WASI_SDK_PATH"
     echo ""
     echo "Next steps:"
-    echo "  1. Rebuild ScriptBox.Net: dotnet build ScriptBox.Net/ScriptBox.Net.csproj"
+    echo "  1. Rebuild ScriptBox: dotnet build ScriptBox/ScriptBox.csproj"
     echo "  2. Run the demo: dotnet run --project ScriptBox.Demo/ScriptBox.Demo.csproj"
 else
     echo ""

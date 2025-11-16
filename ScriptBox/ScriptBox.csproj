@@ -1,0 +1,70 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net8.0;net9.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>ScriptBox</PackageId>
+    <Authors>ScriptBox</Authors>
+    <Description>QuickJS-in-WASM sandbox runtime for .NET applications.</Description>
+    <RepositoryUrl>https://github.com/FredTegnander/ScriptSandboxPoC</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>sandbox wasm javascript quickjs</PackageTags>
+    <IncludeSymbols>false</IncludeSymbols>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <LangVersion>latest</LangVersion>
+    <!-- Suppress type conflict warnings from polyfills -->
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <PackageReference Include="PolySharp" Version="1.15.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Wasmtime" Version="34.0.2" />
+  </ItemGroup>
+
+  <!-- Exclude polyfills for frameworks that have built-in async types -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.0'">
+    <Compile Remove="Polyfills\Netstandard20AsyncPolyfills.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netstandard2.1'">
+    <PackageReference Include="System.Text.Json" Version="4.6.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.0' and '$(TargetFramework)' != 'netstandard2.1'">
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+  <!-- Copy the custom-built QuickJS WASM module to output directory.
+       The module is built by running: bash wasm/build.sh -->
+  <ItemGroup>
+    <Content Include="..\ScriptBox.Wasm\scriptbox.wasm" Condition="Exists('..\ScriptBox.Wasm\scriptbox.wasm')">
+      <Pack>false</Pack>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>scriptbox.wasm</Link>
+    </Content>
+    
+    <!-- Copy the scriptbox bootstrap to output directory -->
+    <Content Include="..\scripts\sdk\scriptbox.js" Condition="Exists('..\scripts\sdk\scriptbox.js')">
+      <Pack>false</Pack>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>scripts\scriptbox.js</Link>
+    </Content>
+    <Content Include="..\scripts\scriptbox-api.js" Condition="Exists('..\scripts\scriptbox-api.js')">
+      <Pack>false</Pack>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>scripts\scriptbox-api.js</Link>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\scripts\sdk\scriptbox.js" Condition="Exists('..\scripts\sdk\scriptbox.js')" LogicalName="ScriptBox.Js.sandbox-api.js" />
+    <EmbeddedResource Include="..\ScriptBox.Wasm\scriptbox.wasm" Condition="Exists('..\ScriptBox.Wasm\scriptbox.wasm')" LogicalName="ScriptBox.Wasm.scriptbox.wasm" />
+  </ItemGroup>
+
+</Project>

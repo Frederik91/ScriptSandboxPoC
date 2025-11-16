@@ -24,7 +24,7 @@ Modern AI copilots constantly emit small snippets of JavaScript/TypeScript that 
 └──────────────┘call  └────────────────┘bridge└────────────────┘
 ```
 
-- **ScriptBox.Net/Core/WasmExecution** loads `scriptbox.wasm`, inserts bootstrap scripts, and feeds user code via `eval_js`.
+- **ScriptBox/Core/WasmExecution** loads `scriptbox.wasm`, inserts bootstrap scripts, and feeds user code via `eval_js`.
 - The WASM module exposes a minimal `__host.bridge(requestJson)` entry point. All host APIs are funneled through that synchronous JSON call.
 - **`scripts/sdk/scriptbox.js`** is the key developer-facing primitive. It wraps the `__host.bridge` call and exposes:
   - `__scriptbox.hostCall(method, args)` – synchronous host RPC.
@@ -86,7 +86,7 @@ var executor = new WasmScriptExecutor(config);
 3. **Update the .NET host** to expose matching methods:
    - Extend `HostApiImpl` (or wrap it) for file/HTTP features.
    - Plug in domain services through `ApiRegistry` so you do not need to edit the core runtime.
-4. **Write tests** in `ScriptBox.Net.Tests` using `Mock<IHostApi>` to verify the QuickJS stack exercises your APIs correctly.
+4. **Write tests** in `ScriptBox.Tests` using `Mock<IHostApi>` to verify the QuickJS stack exercises your APIs correctly.
 
 ## Future roadmap (MVP → GA)
 
