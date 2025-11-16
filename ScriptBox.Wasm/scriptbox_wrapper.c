@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#define NULL_LITERAL_SIZE 5  // "null" + trailing '\0'
+static const char LITERAL_NULL[] = "null";
+
 // ============================================================================
 // QuickJS WASM ScriptBox Bridge - Error Handling and Evaluation Infrastructure
 // ============================================================================
@@ -280,7 +283,20 @@ static int js_value_to_string(JSContext* ctx, JSValue val, char* result_buf, siz
     }
 
     if (JS_IsNull(val)) {
-        snprintf(result_buf, result_buf_size, "null");
+        // Write the literal ourselves so QuickJS doesn't accidentally emit the
+        // bootstrap script text (this happened when we relied on snprintf).
+        if (result_buf_size >= NULL_LITERAL_SIZE) {
+            for (size_t i = 0; i < NULL_LITERAL_SIZE; i++) {
+                result_buf[i] = LITERAL_NULL[i];
+            }
+        } else if (result_buf_size > 0) {
+            size_t copy_len = result_buf_size - 1;
+            size_t i;
+            for (i = 0; i < copy_len && LITERAL_NULL[i] != '\0'; i++) {
+                result_buf[i] = LITERAL_NULL[i];
+            }
+            result_buf[i] = '\0';
+        }
         return 0;
     }
 
