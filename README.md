@@ -87,18 +87,20 @@ builder.Services.AddScriptBox((box, sp) =>
 });
 ```
 
-At runtime you can inject `ScriptBox` anywhere:
+At runtime you can inject `IScriptBox` anywhere:
 
 ```csharp
 public class ScriptRunner
 {
-    private readonly ScriptBox _box;
-    public ScriptRunner(ScriptBox box) => _box = box;
+    private readonly IScriptBox _box;
+    public ScriptRunner(IScriptBox box) => _box = box;
 
     public Task<object?> RunAsync(string script) =>
         _box.CreateSession().RunAsync(script);
 }
 ```
+
+This interface makes it easier to mock `ScriptBox` in unit tests.
 
 ## Host API design
 

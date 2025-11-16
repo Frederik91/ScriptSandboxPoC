@@ -14,7 +14,7 @@ public static class ScriptBoxServiceCollectionExtensions
             throw new ArgumentNullException(nameof(services));
         }
 
-        services.AddSingleton(sp =>
+        services.AddSingleton<IScriptBox>(sp =>
         {
             var builder = ScriptBoxBuilder
                 .Create()
