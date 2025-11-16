@@ -2,9 +2,9 @@ namespace ScriptBox.Net.Tests;
 
 using Xunit;
 using Moq;
-using ScriptBox.Net.Core.HostApi;
-using ScriptBox.Net.Core.WasmExecution;
-using ScriptBox.Net.Services;
+using global::ScriptBox.Net.Core.HostApi;
+using global::ScriptBox.Net.Core.WasmExecution;
+using global::ScriptBox.Net.Services;
 
 /// <summary>
 /// Integration tests that perform actual WASM/QuickJS code execution.

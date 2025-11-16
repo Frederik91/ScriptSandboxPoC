@@ -33,4 +33,13 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="..\scripts\sdk\scriptbox.js"
+                      Condition="Exists('..\scripts\sdk\scriptbox.js')"
+                      LogicalName="ScriptBox.Net.Js.sandbox-api.js" />
+    <EmbeddedResource Include="..\ScriptBox.Wasm\scriptbox.wasm"
+                      Condition="Exists('..\ScriptBox.Wasm\scriptbox.wasm')"
+                      LogicalName="ScriptBox.Net.Wasm.scriptbox.wasm" />
+  </ItemGroup>
+
 </Project>

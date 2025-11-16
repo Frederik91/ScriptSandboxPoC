@@ -2,8 +2,8 @@
 
 using Xunit;
 using Moq;
-using ScriptBox.Net.Core.WasmExecution;
-using ScriptBox.Net.Services;
+using global::ScriptBox.Net.Core.WasmExecution;
+using global::ScriptBox.Net.Services;
 
 /// <summary>
 /// TDD tests for WorkerMethods WASM execution.

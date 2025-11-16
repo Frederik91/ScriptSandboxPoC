@@ -4,6 +4,7 @@ using System.Text.Json;
 using Wasmtime;
 using ScriptBox.Net.Core.Configuration;
 using ScriptBox.Net.Core.HostApi;
+using ScriptBox.Net.Core.Runtime;
 
 namespace ScriptBox.Net.Core.WasmExecution;
 
@@ -11,19 +12,38 @@ namespace ScriptBox.Net.Core.WasmExecution;
 /// Executes JavaScript code within a QuickJS-in-WASM sandbox.
 /// Manages WASM module lifecycle, memory operations, and error handling.
 /// </summary>
-public class WasmScriptExecutor : IWasmScriptExecutor
+public class WasmScriptExecutor : IWasmScriptExecutor, IAsyncDisposable
 {
     private readonly IHostApi _hostApi;
     private readonly SandboxConfiguration _config;
+    private readonly IReadOnlyDictionary<string, Func<HostCallContext, Task<object?>>> _jsonHandlers;
+    private readonly Engine _engine;
+    private readonly Module _module;
+    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNameCaseInsensitive = true
+    };
+    private readonly WasmModuleSource _moduleSource;
+    private bool _disposed;
 
-    public WasmScriptExecutor(IHostApi? hostApi = null, SandboxConfiguration? config = null)
+    public WasmScriptExecutor(
+        IHostApi? hostApi = null,
+        SandboxConfiguration? config = null,
+        IReadOnlyDictionary<string, Func<HostCallContext, Task<object?>>>? jsonHandlers = null,
+        WasmModuleSource? moduleSource = null)
     {
         _config = config ?? SandboxConfiguration.CreateDefault();
         _hostApi = hostApi ?? new HostApiImpl(_config);
+        _jsonHandlers = jsonHandlers != null
+            ? new Dictionary<string, Func<HostCallContext, Task<object?>>>(jsonHandlers, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, Func<HostCallContext, Task<object?>>>(StringComparer.OrdinalIgnoreCase);
+        _moduleSource = moduleSource ?? WasmModuleSource.FromBytes(DefaultRuntimeResources.LoadEmbeddedWasm());
+        _engine = new Engine();
+        _module = _moduleSource.CreateModule(_engine);
     }
 
     public WasmScriptExecutor(SandboxConfiguration? config)
-        : this(null, config)
+        : this(null, config, null, null)
     {
     }
 
@@ -69,23 +89,13 @@ public class WasmScriptExecutor : IWasmScriptExecutor
     /// </summary>
     private void ExecuteScriptInternal(string jsCode)
     {
-        using var engine = new Wasmtime.Engine();
-        var wasmPath = ResolveWasmPath();
-
-        if (!File.Exists(wasmPath))
-        {
-            throw new FileNotFoundException(
-                $"WASM module not found at {wasmPath}. Please build the QuickJS WASM module first.");
-        }
-
-        using var module = Module.FromFile(engine, wasmPath);
-        using var linker = new Linker(engine);
-        using var store = new Store(engine);
+        using var linker = new Linker(_engine);
+        using var store = new Store(_engine);
 
         ConfigureWasi(store);
         DefineHostBridge(store, linker);
 
-        var instance = linker.Instantiate(store, module);
+        var instance = linker.Instantiate(store, _module);
         var memory = instance.GetMemory(WasmConfiguration.MemoryExportName)
                     ?? throw new InvalidOperationException($"No {WasmConfiguration.MemoryExportName} export found");
 
@@ -269,109 +279,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor
             return string.Empty;
         }
 
-        var builder = new StringBuilder();
-        foreach (var script in scripts)
-        {
-            var contents = LoadScriptFile(script);
-            builder.AppendLine(contents);
-        }
-
-        return builder.ToString();
-    }
-
-    private static string LoadScriptFile(string configuredPath)
-    {
-        if (string.IsNullOrWhiteSpace(configuredPath))
-        {
-            throw new ArgumentException("Bootstrap script path cannot be null or empty", nameof(configuredPath));
-        }
-
-        var candidates = new List<string>();
-
-        if (Path.IsPathRooted(configuredPath))
-        {
-            candidates.Add(configuredPath);
-        }
-        else
-        {
-            foreach (var root in EnumerateSearchRoots())
-            {
-                candidates.Add(Path.Combine(root, configuredPath));
-            }
-        }
-
-        foreach (var candidate in candidates)
-        {
-            var fullPath = Path.GetFullPath(candidate);
-            if (File.Exists(fullPath))
-            {
-                return File.ReadAllText(fullPath);
-            }
-        }
-
-        throw new FileNotFoundException(
-            $"Bootstrap script '{configuredPath}' not found. Checked:\n" +
-            string.Join("\n", candidates.Select(Path.GetFullPath)));
-    }
-
-    private static IEnumerable<string> EnumerateSearchRoots()
-    {
-        foreach (var root in EnumerateAncestors(AppContext.BaseDirectory, 6))
-        {
-            yield return root;
-        }
-
-        foreach (var root in EnumerateAncestors(Directory.GetCurrentDirectory(), 6))
-        {
-            yield return root;
-        }
-    }
-
-    private static IEnumerable<string> EnumerateAncestors(string start, int maxDepth)
-    {
-        var current = start;
-        for (int i = 0; i <= maxDepth && !string.IsNullOrEmpty(current); i++)
-        {
-            yield return current;
-            var parent = Path.GetDirectoryName(current.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (string.IsNullOrEmpty(parent) || parent == current)
-            {
-                break;
-            }
-            current = parent;
-        }
-    }
-
-    /// <summary>
-    /// Resolves the path to the WASM module by checking multiple candidates.
-    /// Useful for supporting various deployment and development scenarios.
-    /// </summary>
-    private static string ResolveWasmPath()
-    {
-        var candidates = new[]
-        {
-            // Relative to output directory
-            Path.Combine(AppContext.BaseDirectory, "scriptbox.wasm"),
-            Path.Combine(AppContext.BaseDirectory, "ScriptBox.Wasm", "scriptbox.wasm"),
-            
-            // Relative to repo root (development)
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "ScriptBox.Wasm", "scriptbox.wasm"),
-            
-            // Add platform-specific paths if needed
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "ScriptBox.Wasm", "scriptbox.wasm"),
-        };
-
-        foreach (var path in candidates)
-        {
-            var fullPath = Path.GetFullPath(path);
-            if (File.Exists(fullPath))
-            {
-                return fullPath;
-            }
-        }
-
-        // Return default for helpful error messaging
-        return Path.Combine(AppContext.BaseDirectory, "scriptbox.wasm");
+        return BootstrapScriptLoader.LoadScripts(scripts);
     }
 
     /// <summary>
@@ -382,8 +290,29 @@ public class WasmScriptExecutor : IWasmScriptExecutor
         try
         {
             using var doc = JsonDocument.Parse(json);
-            var method = doc.RootElement.GetProperty("method").GetString();
-            var args = doc.RootElement.GetProperty("args");
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("method", out var methodElement))
+            {
+                return "{\"error\":\"Host call missing method\"}";
+            }
+
+            var method = methodElement.GetString();
+            if (string.IsNullOrWhiteSpace(method))
+            {
+                return "{\"error\":\"Host call missing method\"}";
+            }
+
+            if (_jsonHandlers.Count > 0 && _jsonHandlers.TryGetValue(method, out var handler))
+            {
+                var context = HostCallContext.FromJson(method, root, CancellationToken.None);
+                var result = handler(context).GetAwaiter().GetResult();
+                return JsonSerializer.Serialize(new { result }, _jsonOptions);
+            }
+
+            if (!root.TryGetProperty("args", out var args))
+            {
+                return $"{{\"error\":\"Host call '{method}' missing args array\"}}";
+            }
 
             return method switch
             {
@@ -544,4 +473,16 @@ public class WasmScriptExecutor : IWasmScriptExecutor
     }
 
     #endregion
+    public ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        _module.Dispose();
+        _engine.Dispose();
+        _disposed = true;
+        return ValueTask.CompletedTask;
+    }
 }

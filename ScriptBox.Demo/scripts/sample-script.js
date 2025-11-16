@@ -1,6 +1,5 @@
-const mathResult = scriptbox.math.add(5, 7);
-console.log('math.add =>', mathResult);
+const sum = calculator.add(5, 7);
+console.log('calculator.add =>', sum);
 
-scriptbox.files.writeAll('demo/result.txt', `sum=${mathResult}`);
-const fileContents = scriptbox.files.readAll('demo/result.txt');
-console.log('files.readAll =>', fileContents);
+const difference = calculator.subtract(10, 3);
+console.log('calculator.subtract =>', difference);

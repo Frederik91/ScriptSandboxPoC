@@ -10,7 +10,7 @@ try
     var scriptPath = GetScriptPath();
     var jsCode = File.ReadAllText(scriptPath);
 
-    // Set up script execution (no RPC needed)
+    // Set up script execution.
     var scriptExecutor = new WasmScriptExecutor();
     var workerMethods = new WorkerMethods(scriptExecutor);
 

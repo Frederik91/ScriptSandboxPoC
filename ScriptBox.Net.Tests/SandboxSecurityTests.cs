@@ -2,8 +2,8 @@ namespace ScriptBox.Net.Tests;
 
 using System.IO;
 using Xunit;
-using ScriptBox.Net.Core.Configuration;
-using ScriptBox.Net.Core.HostApi;
+using global::ScriptBox.Net.Core.Configuration;
+using global::ScriptBox.Net.Core.HostApi;
 
 /// <summary>
 /// Security tests for the sandbox file system and HTTP APIs.
