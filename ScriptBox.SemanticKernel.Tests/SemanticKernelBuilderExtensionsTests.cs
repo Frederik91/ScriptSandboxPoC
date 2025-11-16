@@ -20,7 +20,7 @@ public class SemanticKernelBuilderExtensionsTests
         await using var scriptBox = builder.Build();
         await using var session = scriptBox.CreateSession();
 
-        var result = await session.RunAsync("math.add(3, 4);");
+        var result = await session.RunAsync("return math.add(3, 4);");
         Assert.Equal(7, Convert.ToInt32(result));
     }
 

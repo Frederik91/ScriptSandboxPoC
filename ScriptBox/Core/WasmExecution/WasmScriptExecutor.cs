@@ -126,16 +126,28 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
         string fullScript;
         if (string.IsNullOrWhiteSpace(bootstrapJs))
         {
-            fullScript = jsCode;
+            fullScript = WrapUserScriptInIife(jsCode);
         }
         else
         {
             // Terminate bootstrap, add void 0 to discard any bootstrap return value,
-            // then execute user code - JavaScript returns the value of the last expression
-            fullScript = $"{bootstrapJs};\nvoid 0;\n{jsCode}";
+            // then wrap user code in an IIFE to support return statements at the top level
+            fullScript = $"{bootstrapJs};\nvoid 0;\n{WrapUserScriptInIife(jsCode)}";
         }
 
         return ExecuteEvalFunction(instance, memory, fullScript);
+    }
+
+    /// <summary>
+    /// Wraps user script code in an Immediately Invoked Function Expression (IIFE).
+    /// This allows scripts to use top-level return statements, which aligns with
+    /// how AI models typically generate JavaScript code.
+    /// </summary>
+    /// <param name="jsCode">The user script code to wrap</param>
+    /// <returns>The user code wrapped in an IIFE that is immediately invoked</returns>
+    private static string WrapUserScriptInIife(string jsCode)
+    {
+        return $"(function() {{\n{jsCode}\n}})()";
     }
 
     /// <summary>

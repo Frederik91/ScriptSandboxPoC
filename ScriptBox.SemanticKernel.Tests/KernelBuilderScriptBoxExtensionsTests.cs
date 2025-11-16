@@ -19,7 +19,7 @@ public class KernelBuilderScriptBoxExtensionsTests
 
         const string script = """
             const total = math.add(2, 3);
-            total;
+            return total;
             """;
 
         var arguments = new KernelArguments
