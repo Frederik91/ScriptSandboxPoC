@@ -37,7 +37,16 @@ if [ ! -d "$WASI_SDK_PATH" ]; then
     echo "  https://github.com/WebAssembly/wasi-sdk/releases/tag/v28.0"
     echo ""
     echo "For macOS ARM64, download:"
-    echo "  wasi-sdk-28.0-arm64-macos.tar.gz"
+    echo "  https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-28/wasi-sdk-28.0-arm64-macos.tar.gz"
+    echo ""
+    echo "For macOS x86-64, download:"
+    echo "  https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-28/wasi-sdk-28.0-x86_64-macos.tar.gz"
+    echo ""
+    echo "For Linux x86-64, download:"
+    echo "  https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-28/wasi-sdk-28.0-x86_64-linux.tar.gz"
+    echo ""
+    echo "For Linux ARM64, download:"
+    echo "  https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-28/wasi-sdk-28.0-arm64-linux.tar.gz"
     echo ""
     echo "Then extract and set WASI_SDK_PATH:"
     echo "  export WASI_SDK_PATH=/path/to/wasi-sdk-28.0"
@@ -96,16 +105,20 @@ cd "$QUICKJS_DIR"
 # This prevents WASI builds from trying to use platform-specific malloc_size functions
 if ! grep -q "__wasi__" quickjs.c; then
     # Use sed to find the _WIN32 section and add __wasi__ case after it
+    # Note: Using printf for cross-platform newline handling
     sed -i.bak '/#elif defined(_WIN32)/a\
 #elif defined(__wasi__)\
-    return 0;' quickjs.c 2>/dev/null || true
+    return 0;' quickjs.c || true
 fi
 
 # Fix 2: Fix the CONFIG_VERSION string concatenation issue
 # The issue is: fprintf(fp, "QuickJS memory usage -- " CONFIG_VERSION " version, ...
 # This fails because CONFIG_VERSION is a macro and can't be stringified inline
 # Replace with a simpler format string that doesn't try to embed the macro
-sed -i 's/fprintf(fp, "QuickJS memory usage -- " CONFIG_VERSION " version,/fprintf(fp, "QuickJS memory usage -- version,/g' quickjs.c 2>/dev/null || true
+sed -i 's/fprintf(fp, "QuickJS memory usage -- " CONFIG_VERSION " version,/fprintf(fp, "QuickJS memory usage -- version,/g' quickjs.c || true
+
+# Clean up backup files from sed
+rm -f quickjs.c.bak
 
 cd - > /dev/null
 
@@ -143,6 +156,8 @@ $CLANG \
     -Wl,--export=quickjs_selftest \
     -Wl,--export=get_last_error_ptr \
     -Wl,--export=get_last_error_len \
+    -Wl,--export=get_result_ptr \
+    -Wl,--export=get_result_len \
     -Wl,--no-entry \
     -Wl,--strip-all
 

@@ -16,19 +16,20 @@ public class WorkerMethods
     }
 
     /// <summary>
-    /// Executes JavaScript code in the WASM sandbox.
+    /// Executes JavaScript code in the WASM sandbox and returns the result.
     /// </summary>
     /// <param name="jsCode">The JavaScript source code to execute.</param>
     /// <param name="timeoutMs">Optional timeout in milliseconds. If null, uses the default timeout.</param>
+    /// <returns>The result of the JavaScript execution as a string. Primitives are converted to their string representation, objects and arrays are converted to JSON.</returns>
     /// <exception cref="InvalidOperationException">Thrown when script execution fails.</exception>
     /// <exception cref="TimeoutException">Thrown when script execution exceeds the timeout limit.</exception>
-    public void RunScript(string jsCode, int? timeoutMs = null)
+    public string RunScript(string jsCode, int? timeoutMs = null)
     {
         if (string.IsNullOrEmpty(jsCode))
         {
             throw new ArgumentException("JavaScript code cannot be null or empty.", nameof(jsCode));
         }
 
-        _scriptExecutor.ExecuteScript(jsCode, timeoutMs);
+        return _scriptExecutor.ExecuteScript(jsCode, timeoutMs);
     }
 }

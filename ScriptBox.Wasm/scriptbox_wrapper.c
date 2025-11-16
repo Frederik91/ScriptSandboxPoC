@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#define NULL_LITERAL_SIZE 5  // "null" + trailing '\0'
+static const char LITERAL_NULL[] = "null";
+
 // ============================================================================
 // QuickJS WASM ScriptBox Bridge - Error Handling and Evaluation Infrastructure
 // ============================================================================
@@ -28,6 +31,10 @@ void host_log(const char* ptr, int len);
 // Global error message buffer for inter-process communication
 // Accessible from host via get_last_error_ptr() and get_last_error_len()
 static char g_last_error[1024];
+
+// Global result buffer for returning JavaScript values to the host
+// Accessible from host via get_result_ptr() and get_result_len()
+static char g_result[65536];  // 64KB buffer for result values
 
 // ---------- Global QuickJS state ----------
 // Note: Each eval_js call creates its own runtime/context for isolation
@@ -158,6 +165,28 @@ int get_last_error_len(void) {
     return (int)strlen(g_last_error);
 }
 
+/**
+ * @brief Get pointer to result buffer
+ * @return Pointer to null-terminated result string (valid until next eval_js call)
+ *
+ * The returned pointer points to WASM linear memory and is valid for the
+ * lifetime of the current WASM instance. Use get_result_len() to determine
+ * the length before copying.
+ */
+__attribute__((export_name("get_result_ptr")))
+const char* get_result_ptr(void) {
+    return g_result;
+}
+
+/**
+ * @brief Get length of result
+ * @return Length in bytes (not including null terminator)
+ */
+__attribute__((export_name("get_result_len")))
+int get_result_len(void) {
+    return (int)strlen(g_result);
+}
+
 // ---------- Console logging ----------
 
 static JSValue js_console_log(JSContext *ctx, JSValueConst this_val,
@@ -229,26 +258,151 @@ static int install_host_bridge(JSContext* ctx) {
     return 0;
 }
 
+// ---------- Result Conversion ----------
+
+/**
+ * @brief Convert a JavaScript value to a string representation
+ *
+ * For primitives (number, boolean, string, null, undefined): uses ToString
+ * For objects and arrays: uses JSON.stringify
+ *
+ * @param ctx The QuickJS context
+ * @param val The JavaScript value to convert
+ * @param result_buf Output buffer for the result
+ * @param result_buf_size Size of the output buffer
+ * @return 0 on success, -1 on error
+ */
+static int js_value_to_string(JSContext* ctx, JSValue val, char* result_buf, size_t result_buf_size) {
+    // Clear result buffer
+    result_buf[0] = '\0';
+
+    // Handle different value types
+    if (JS_IsUndefined(val)) {
+        snprintf(result_buf, result_buf_size, "undefined");
+        return 0;
+    }
+
+    if (JS_IsNull(val)) {
+        // Write the literal ourselves so QuickJS doesn't accidentally emit the
+        // bootstrap script text (this happened when we relied on snprintf).
+        if (result_buf_size >= NULL_LITERAL_SIZE) {
+            for (size_t i = 0; i < NULL_LITERAL_SIZE; i++) {
+                result_buf[i] = LITERAL_NULL[i];
+            }
+        } else if (result_buf_size > 0) {
+            size_t copy_len = result_buf_size - 1;
+            size_t i;
+            for (i = 0; i < copy_len && LITERAL_NULL[i] != '\0'; i++) {
+                result_buf[i] = LITERAL_NULL[i];
+            }
+            result_buf[i] = '\0';
+        }
+        return 0;
+    }
+
+    if (JS_IsBool(val)) {
+        int bval = JS_ToBool(ctx, val);
+        snprintf(result_buf, result_buf_size, "%s", bval ? "true" : "false");
+        return 0;
+    }
+
+    if (JS_IsNumber(val) || JS_IsString(val)) {
+        // For numbers and strings, use direct ToString
+        const char* str = JS_ToCString(ctx, val);
+        if (!str) {
+            set_error("Failed to convert value to string");
+            return -1;
+        }
+        snprintf(result_buf, result_buf_size, "%s", str);
+        JS_FreeCString(ctx, str);
+        return 0;
+    }
+
+    // For objects and arrays, use JSON.stringify
+    if (JS_IsObject(val)) {
+        // Get JSON global object
+        JSValue global = JS_GetGlobalObject(ctx);
+        JSValue json_obj = JS_GetPropertyStr(ctx, global, "JSON");
+        JSValue stringify_fn = JS_GetPropertyStr(ctx, json_obj, "stringify");
+
+        // Call JSON.stringify(val)
+        JSValue args[1] = { val };
+        JSValue json_result = JS_Call(ctx, stringify_fn, json_obj, 1, args);
+
+        if (JS_IsException(json_result)) {
+            // JSON.stringify failed - try toString as fallback
+            JS_FreeValue(ctx, json_result);
+            JS_FreeValue(ctx, stringify_fn);
+            JS_FreeValue(ctx, json_obj);
+            JS_FreeValue(ctx, global);
+
+            const char* str = JS_ToCString(ctx, val);
+            if (!str) {
+                set_error("Failed to convert object to string");
+                return -1;
+            }
+            snprintf(result_buf, result_buf_size, "%s", str);
+            JS_FreeCString(ctx, str);
+            return 0;
+        }
+
+        const char* json_str = JS_ToCString(ctx, json_result);
+        if (!json_str) {
+            JS_FreeValue(ctx, json_result);
+            JS_FreeValue(ctx, stringify_fn);
+            JS_FreeValue(ctx, json_obj);
+            JS_FreeValue(ctx, global);
+            set_error("Failed to convert JSON result to string");
+            return -1;
+        }
+
+        snprintf(result_buf, result_buf_size, "%s", json_str);
+
+        JS_FreeCString(ctx, json_str);
+        JS_FreeValue(ctx, json_result);
+        JS_FreeValue(ctx, stringify_fn);
+        JS_FreeValue(ctx, json_obj);
+        JS_FreeValue(ctx, global);
+        return 0;
+    }
+
+    // Fallback: try to convert to string
+    const char* str = JS_ToCString(ctx, val);
+    if (!str) {
+        set_error("Failed to convert value to string");
+        return -1;
+    }
+    snprintf(result_buf, result_buf_size, "%s", str);
+    JS_FreeCString(ctx, str);
+    return 0;
+}
+
 // ---------- JavaScript Evaluation ----------
 
 /**
  * @brief Evaluate JavaScript code in a fresh context
- * 
+ *
  * Creates a new runtime and context for each invocation, evaluates the code,
- * and cleans up resources. This ensures isolation between evaluations.
- * 
+ * captures the return value, and cleans up resources. This ensures isolation
+ * between evaluations.
+ *
  * @param code_ptr Pointer to JavaScript source code (in WASM linear memory)
  * @param len Number of bytes to read from code_ptr
- * 
+ *
  * @return Status code:
- *   0 = Success
+ *   0 = Success (result available via get_result_ptr/get_result_len)
  *   20 = Failed to create runtime
  *   21 = Failed to create context
  *   22 = Evaluation resulted in exception (see get_last_error_ptr)
  *   23 = Global object is null/undefined
  *   24 = code_ptr is NULL
  *   25 = Failed to allocate code buffer
- * 
+ *   26 = Failed to convert result to string
+ *
+ * On success, call get_result_ptr() and get_result_len() to retrieve the
+ * JavaScript return value as a string. Primitives are converted to their
+ * string representation, objects and arrays are converted to JSON.
+ *
  * On error, call get_last_error_ptr() and get_last_error_len() to retrieve
  * a human-readable error message including exception details and stack trace.
  */
@@ -319,7 +473,16 @@ int eval_js(const char* code_ptr, int len)
         return 22;
     }
 
-    // Success
+    // Success - capture the result value
+    if (js_value_to_string(ctx, result, g_result, sizeof(g_result)) != 0) {
+        // Failed to convert result to string
+        JS_FreeValue(ctx, result);
+        js_free_rt(rt, code_copy);
+        JS_FreeContext(ctx);
+        JS_FreeRuntime(rt);
+        return 26;  // New error code for result conversion failure
+    }
+
     JS_FreeValue(ctx, result);
     js_free_rt(rt, code_copy);
     JS_FreeContext(ctx);

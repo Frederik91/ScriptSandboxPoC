@@ -49,10 +49,130 @@ public class WasmIntegrationTests
         var code = "1 + 1";
 
         // Act
-        var exception = Record.Exception(() => workerMethods.RunScript(code));
+        var result = workerMethods.RunScript(code);
 
         // Assert
-        Assert.Null(exception);
+        Assert.NotNull(result);
+        Assert.Equal("2", result);
+    }
+
+    [Fact]
+    public void ExecuteScript_SumTwoNumbers_ReturnsNumber()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var workerMethods = new WorkerMethods(executor);
+        var code = @"
+function sum(a, b) {
+    return a + b;
+}
+sum(5, 3)";
+
+        // Act
+        var result = workerMethods.RunScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("8", result);
+    }
+
+    [Fact]
+    public void ExecuteScript_ReturnString_ReturnsString()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var workerMethods = new WorkerMethods(executor);
+        var code = "'Hello World'";
+
+        // Act
+        var result = workerMethods.RunScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Hello World", result);
+    }
+
+    [Fact]
+    public void ExecuteScript_ReturnBoolean_ReturnsBoolean()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var workerMethods = new WorkerMethods(executor);
+        var code = "true";
+
+        // Act
+        var result = workerMethods.RunScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("true", result);
+    }
+
+    [Fact]
+    public void ExecuteScript_ReturnNull_ReturnsNull()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var workerMethods = new WorkerMethods(executor);
+        var code = "null";
+
+        // Act
+        var result = workerMethods.RunScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("null", result);
+    }
+
+    [Fact]
+    public void ExecuteScript_ReturnUndefined_ReturnsUndefined()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var workerMethods = new WorkerMethods(executor);
+        var code = "undefined";
+
+        // Act
+        var result = workerMethods.RunScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("undefined", result);
+    }
+
+    [Fact]
+    public void ExecuteScript_ReturnObject_ReturnsJson()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var workerMethods = new WorkerMethods(executor);
+        var code = "({ name: 'Alice', age: 30 })";
+
+        // Act
+        var result = workerMethods.RunScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Contains("\"name\"", result);
+        Assert.Contains("\"Alice\"", result);
+        Assert.Contains("\"age\"", result);
+        Assert.Contains("30", result);
+    }
+
+    [Fact]
+    public void ExecuteScript_ReturnArray_ReturnsJson()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var workerMethods = new WorkerMethods(executor);
+        var code = "[1, 2, 3, 4, 5]";
+
+        // Act
+        var result = workerMethods.RunScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("[1,2,3,4,5]", result);
     }
 
     [Fact]
@@ -124,13 +244,15 @@ let x = 10;
 let y = 20;
 let sum = x + y;
 console.log('Sum: ' + sum);
+sum;
 ";
 
         // Act
-        var exception = Record.Exception(() => workerMethods.RunScript(code));
+        var result = workerMethods.RunScript(code);
 
         // Assert
-        Assert.Null(exception);
+        Assert.NotNull(result);
+        Assert.Equal("30", result);
         _mockHostApi.Verify(
             api => api.Log(It.Is<string>(msg => msg == "Sum: 30")),
             Times.Once);
