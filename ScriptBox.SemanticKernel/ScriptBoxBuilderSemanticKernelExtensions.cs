@@ -46,6 +46,14 @@ public static class ScriptBoxBuilderSemanticKernelExtensions
             return api;
         });
 
+        var list = builder.GetMetadata<List<SemanticKernelNamespaceMetadata>>("SemanticKernelPlugins");
+        if (list == null)
+        {
+            list = new List<SemanticKernelNamespaceMetadata>();
+            builder.WithMetadata("SemanticKernelPlugins", list);
+        }
+        list.Add(descriptor.Metadata);
+
         return descriptor.Metadata;
     }
 

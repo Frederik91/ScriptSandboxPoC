@@ -36,6 +36,11 @@ static char g_last_error[1024];
 // Accessible from host via get_result_ptr() and get_result_len()
 static char g_result[65536];  // 64KB buffer for result values
 
+// Global script buffer for receiving JavaScript source code from the host
+// Accessible from host via get_script_buffer_ptr() and get_script_buffer_len()
+#define SCRIPT_BUFFER_SIZE (1024 * 1024) // 1MB
+static char g_script_buffer[SCRIPT_BUFFER_SIZE];
+
 // ---------- Global QuickJS state ----------
 // Note: Each eval_js call creates its own runtime/context for isolation
 
@@ -142,6 +147,24 @@ static JSValue js_bridge_call(JSContext *ctx, JSValueConst this_val,
 // Note: Host bridge is installed per-evaluation in eval_js()
 
 // ---------- Error reporting ----------
+
+/**
+ * @brief Get pointer to script buffer
+ * @return Pointer to the script buffer
+ */
+__attribute__((export_name("get_script_buffer_ptr")))
+char* get_script_buffer_ptr(void) {
+    return g_script_buffer;
+}
+
+/**
+ * @brief Get length of script buffer
+ * @return Length in bytes
+ */
+__attribute__((export_name("get_script_buffer_len")))
+int get_script_buffer_len(void) {
+    return SCRIPT_BUFFER_SIZE;
+}
 
 /**
  * @brief Get pointer to error message buffer

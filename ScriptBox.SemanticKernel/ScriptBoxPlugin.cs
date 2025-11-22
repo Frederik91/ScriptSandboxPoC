@@ -64,10 +64,17 @@ public sealed class ScriptBoxPlugin
         }
 
         ValidateJson(inputJson);
-        var literal = JsonSerializer.Serialize(inputJson, SerializerOptions);
+        
+        // inputJson is already a JSON string, so inject it directly without re-serializing
         var sb = new StringBuilder();
-        sb.AppendLine($"const scriptBoxInput = JSON.parse({literal});");
+        sb.AppendLine($"const scriptBoxInput = {inputJson};");
         sb.AppendLine("globalThis.scriptBoxInput = scriptBoxInput;");
+        
+        // Initialize tools now that scriptBoxInput is available
+        sb.AppendLine("if (typeof __scriptbox !== 'undefined' && typeof __scriptbox.initializeTools === 'function') {");
+        sb.AppendLine("    __scriptbox.initializeTools();");
+        sb.AppendLine("}");
+        
         sb.AppendLine(code);
         return sb.ToString();
     }

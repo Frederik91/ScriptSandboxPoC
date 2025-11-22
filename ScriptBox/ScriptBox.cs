@@ -18,14 +18,18 @@ public sealed class ScriptBox : IScriptBox, IDisposable
     private readonly string _bootstrapCode;
     private readonly TimeSpan _defaultTimeout;
 
+    public IReadOnlyDictionary<string, object> Metadata { get; }
+
     internal ScriptBox(
         WasmScriptExecutor executor,
         string bootstrapCode,
-        TimeSpan defaultTimeout)
+        TimeSpan defaultTimeout,
+        IReadOnlyDictionary<string, object> metadata)
     {
         _executor = executor ?? throw new ArgumentNullException(nameof(executor));
         _bootstrapCode = bootstrapCode ?? string.Empty;
         _defaultTimeout = defaultTimeout;
+        Metadata = metadata ?? new Dictionary<string, object>();
     }
 
     public ScriptSession CreateSession(TimeSpan? timeout = null)

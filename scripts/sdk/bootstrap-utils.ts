@@ -8,10 +8,11 @@
  */
 
 // Type definitions for the sandbox environment
-declare const __scriptbox: {
-    hostCall: (method: string, args: unknown[]) => unknown;
-    createMethod: (methodName: string) => (...args: unknown[]) => unknown;
-};
+// __scriptbox is declared in index.d.ts
+
+declare var console: any;
+declare var global: any;
+declare var self: any;
 
 declare const scriptBoxInput: {
     user?: unknown;
@@ -49,70 +50,72 @@ interface ToolInvocationResponse {
     };
 }
 
+function createToolProxy(toolId: string) {
+    if (typeof __scriptbox !== "undefined" && __scriptbox.createMethod) {
+        return __scriptbox.createMethod(toolId);
+    }
+    return function() { throw new Error("ScriptBox not initialized"); };
+}
+
 /**
  * Initialize __scriptbox.utils namespace and populate it with tool proxies.
+ * This function should be called after scriptBoxInput is defined.
  */
-(function initializeToolProxies(root: any) {
-    if (typeof __scriptbox === "undefined") {
-        console.warn("[bootstrap-utils] __scriptbox not available; skipping tool initialization");
-        return;
-    }
+function initializeTools() {
+    try {
+        const root = typeof globalThis !== "undefined"
+            ? globalThis
+            : typeof global !== "undefined"
+                ? global
+                : typeof self !== "undefined"
+                    ? self
+                    : (this as any);
 
-    const descriptors = (scriptBoxInput?.tools?.descriptors ?? []) as any[];
-    if (!Array.isArray(descriptors) || descriptors.length === 0) {
-        console.debug("[bootstrap-utils] No tools to initialize");
-        return;
-    }
+        if (typeof __scriptbox === "undefined") return;
+        if (typeof root.scriptBoxInput === "undefined") return;
 
-    // Ensure __scriptbox.utils exists
-    if (!root.__scriptbox.utils) {
-        root.__scriptbox.utils = {};
-    }
+        let descriptors: any[] = [];
+        if (root.scriptBoxInput && root.scriptBoxInput.tools && root.scriptBoxInput.tools.descriptors) {
+            descriptors = root.scriptBoxInput.tools.descriptors;
+        }
+        if (!Array.isArray(descriptors) || descriptors.length === 0) return;
 
-    // Create proxy for each tool
-    for (const descriptor of descriptors) {
-        const toolId = descriptor.id;
-        const toolName = descriptor.name;
-
-        if (!toolId || !toolName) {
-            console.warn("[bootstrap-utils] Skipping tool with missing id or name", descriptor);
-            continue;
+        if (!root.__scriptbox.utils) {
+            root.__scriptbox.utils = {};
         }
 
-        // Create async proxy function
-        const createToolProxy = (id: string) => {
-            return async function toolProxy(...args: unknown[]): Promise<unknown> {
-                const request: ToolInvocationRequest = {
-                    kind: "tool.invoke",
-                    toolId: id,
-                    args: args.length > 0 ? args : undefined,
-                };
+        for (const descriptor of descriptors) {
+            const toolId = descriptor.id;
+            const toolName = descriptor.name;
+            const pluginName = descriptor.plugin;
 
-                try {
-                    const response = await __scriptbox.hostCall("tool.invoke", [JSON.stringify(request)]);
-                    if (response === null || typeof response === "undefined") {
-                        throw new Error("Host returned null response for tool.invoke");
-                    }
+            if (!toolId || !toolName) continue;
 
-                    const parsed = typeof response === "string" ? JSON.parse(response) : response;
+            const proxy = createToolProxy(toolId);
+            root.__scriptbox.utils[toolName] = proxy;
 
-                    if (parsed && typeof parsed === "object" && parsed.error) {
-                        const errorMsg = parsed.error.message || "Unknown error";
-                        throw new Error(`[${id}] ${errorMsg}`);
-                    }
-
-                    return parsed?.result ?? null;
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : String(err);
-                    throw new Error(`Failed to invoke tool ${id}: ${message}`);
+            if (pluginName) {
+                if (!root[pluginName]) {
+                    root[pluginName] = {};
                 }
-            };
-        };
+                root[pluginName][toolName] = proxy;
+            }
+        }
 
-        root.__scriptbox.utils[toolName] = createToolProxy(toolId);
+        // Alias assistantApi.utils
+        root.assistantApi = root.assistantApi || {};
+        root.assistantApi.utils = root.__scriptbox.utils;
+
+    } catch (e) {
+        // Swallow bootstrap errors
     }
+}
 
-    console.debug(`[bootstrap-utils] Initialized ${descriptors.length} tool(s)`);
+// Expose initializeTools globally
+(function(root: any) {
+    if (root.__scriptbox) {
+        root.__scriptbox.initializeTools = initializeTools;
+    }
 })(typeof globalThis !== "undefined"
     ? globalThis
     : typeof global !== "undefined"
@@ -121,24 +124,5 @@ interface ToolInvocationResponse {
             ? self
             : (this as any));
 
-/**
- * Alias assistantApi.utils for ergonomic script access.
- * Scripts can now call: assistantApi.utils.method_name(...)
- */
-(function aliasAssistantApi(root: any) {
-    if (!root.__scriptbox?.utils) {
-        console.debug("[bootstrap-utils] No utils to alias");
-        return;
-    }
 
-    root.assistantApi = root.assistantApi ?? {};
-    root.assistantApi.utils = root.__scriptbox.utils;
 
-    console.debug("[bootstrap-utils] Aliased assistantApi.utils");
-})(typeof globalThis !== "undefined"
-    ? globalThis
-    : typeof global !== "undefined"
-        ? global
-        : typeof self !== "undefined"
-            ? self
-            : (this as any));

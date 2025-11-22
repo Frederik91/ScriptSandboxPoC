@@ -11,16 +11,16 @@ public class SemanticKernelBuilderExtensionsTests
     public async Task RegisterSemanticKernelPlugin_ExposesNamespaceAndMetadata()
     {
         var builder = ScriptBoxBuilder.Create();
-        var metadata = builder.RegisterSemanticKernelPlugin<SampleMathPlugin>("math");
+        var metadata = builder.RegisterSemanticKernelPlugin<SampleMathPlugin>("math_test");
 
-        Assert.Equal("math", metadata.Name);
+        Assert.Equal("math_test", metadata.Name);
         Assert.Equal(2, metadata.Functions.Count);
         Assert.Contains(metadata.Functions, f => f.Name == "add" && f.Parameters.Count == 2);
 
         await using var scriptBox = builder.Build();
         await using var session = scriptBox.CreateSession();
 
-        var result = await session.RunAsync("return math.add(3, 4);");
+        var result = await session.RunAsync("return math_test.add(3, 4);");
         Assert.Equal(7, Convert.ToInt32(result));
     }
 
@@ -28,21 +28,21 @@ public class SemanticKernelBuilderExtensionsTests
     public void TypeScriptGenerator_RendersNamespaces()
     {
         var builder = ScriptBoxBuilder.Create();
-        var metadata = builder.RegisterSemanticKernelPlugin<SampleMathPlugin>("math");
+        var metadata = builder.RegisterSemanticKernelPlugin<SampleMathPlugin>("math_test");
 
         var declaration = SemanticKernelTypeScriptGenerator.Generate(new[] { metadata });
 
-        Assert.Contains("interface MathApi", declaration);
+        Assert.Contains("interface MathTestApi", declaration);
         Assert.Contains("add(left: number, right: number): Promise<number>;", declaration);
         Assert.Contains("format_sum(left: number, right: number, prefix?: string): Promise<string>;", declaration);
-        Assert.Contains("declare const math: ScriptBox.MathApi;", declaration);
+        Assert.Contains("declare const math_test: ScriptBox.MathTestApi;", declaration);
     }
 
     [Fact]
     public void RegisterSemanticKernelPlugin_PreservesDescriptions()
     {
         var builder = ScriptBoxBuilder.Create();
-        var metadata = builder.RegisterSemanticKernelPlugin<SampleMathPlugin>("math");
+        var metadata = builder.RegisterSemanticKernelPlugin<SampleMathPlugin>("math_test");
         var add = metadata.Functions.Single(f => f.Name == "add");
 
         Assert.Equal("Adds two integers.", add.Description);
