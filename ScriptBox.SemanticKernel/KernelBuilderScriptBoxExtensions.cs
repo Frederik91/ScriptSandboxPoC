@@ -17,11 +17,15 @@ public static class KernelBuilderScriptBoxExtensions
     /// <param name="builder">The kernel builder to enrich.</param>
     /// <param name="configure">Optional callback for configuring the underlying <see cref="ScriptBoxBuilder"/>.</param>
     /// <param name="pluginName">The plugin name exposed to Semantic Kernel (defaults to "scriptbox").</param>
+    /// <param name="enableDiscovery">Whether to automatically register the discovery plugin (defaults to true).</param>
+    /// <param name="discoveryPluginName">The name of the discovery plugin if enabled (defaults to "scriptbox_discovery").</param>
     /// <returns>The provided builder to enable chaining.</returns>
     public static IKernelBuilder AddScriptBox(
         this IKernelBuilder builder,
         Action<ScriptBoxBuilder>? configure = null,
-        string pluginName = "scriptbox")
+        string pluginName = "scriptbox",
+        bool enableDiscovery = true,
+        string discoveryPluginName = "scriptbox_discovery")
     {
         if (builder is null)
         {
@@ -53,6 +57,11 @@ public static class KernelBuilderScriptBoxExtensions
         });
 
         builder.Plugins.AddFromType<ScriptBoxPlugin>(pluginName);
+
+        if (enableDiscovery)
+        {
+            builder.Plugins.AddFromType<ScriptBoxDiscoveryPlugin>(discoveryPluginName);
+        }
 
         return builder;
     }

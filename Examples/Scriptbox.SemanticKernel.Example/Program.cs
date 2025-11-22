@@ -21,9 +21,8 @@ static async Task RunPerformanceBenchmarkAsync(string apiKey, string modelId)
     var jsApiKernel = PerformanceBenchmark.CreateJavaScriptApiKernel(apiKey, modelId);
 
     var chat = toolCallingKernel.GetRequiredService<IChatCompletionService>();
-    var scriptBox = jsApiKernel.GetRequiredService<IScriptBox>();
     var tokenSink = toolCallingKernel.GetRequiredService<TokenSink>();
-    var benchmark = new PerformanceBenchmark(chat, scriptBox, tokenSink);
+    var benchmark = new PerformanceBenchmark(chat, jsApiKernel, tokenSink);
 
     // Example 1: Calculate complex math operations
     var mathTask = """
