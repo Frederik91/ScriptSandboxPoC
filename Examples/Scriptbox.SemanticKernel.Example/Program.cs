@@ -51,7 +51,6 @@ static async Task RunPerformanceBenchmarkAsync(Kernel kernel)
         """;
 
     var mathScript = """
-        const utils = assistantApi.utils;
         let a = 42, b = 8;
         let sum = utils.math_add(a, b);
         let doubled = utils.math_multiply(sum, 2);
@@ -82,7 +81,6 @@ static async Task RunPerformanceBenchmarkAsync(Kernel kernel)
         """;
 
     var stringScript = """
-        const utils = assistantApi.utils;
         let text = "hello world";
         let upper = utils.str_uppercase(text);
         let reversed = utils.str_reverse(upper);
