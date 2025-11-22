@@ -8,8 +8,8 @@ We ran a simple benchmark comparing **Standard Tool Calling** (LLM calls tools o
 
 | Task | Tool Calling Tokens | ScriptBox Tokens | Reduction |
 |------|---------------------|------------------|-----------|
-| **Math Operations** (7 steps) | 15,616 | 3,188 | **~80%** |
-| **String/Array Ops** (8 steps) | 21,620 | 4,162 | **~81%** |
+| **Math Operations** (7 steps) | 15,808 | 5756 | **~64%** |
+| **String/Array Ops** (8 steps) | 16,860 | 7,520 | **~55%** |
 
 *Note: These results are from our own internal benchmarks (`Examples/Scriptbox.SemanticKernel.Example`) running on GPT-5-mini. Actual savings depend on task complexity and prompt structure.*
 

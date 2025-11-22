@@ -16,13 +16,15 @@ namespace Scriptbox.SemanticKernel.Example;
 internal sealed class PerformanceBenchmark
 {
     private readonly IChatCompletionService _chat;
+    private readonly Kernel _jsApiKernel;
     private readonly IScriptBox _scriptBox;
     private readonly TokenSink _tokenSink;
 
-    public PerformanceBenchmark(IChatCompletionService chat, IScriptBox scriptBox, TokenSink tokenSink)
+    public PerformanceBenchmark(IChatCompletionService chat, Kernel jsApiKernel, TokenSink tokenSink)
     {
         _chat = chat ?? throw new ArgumentNullException(nameof(chat));
-        _scriptBox = scriptBox ?? throw new ArgumentNullException(nameof(scriptBox));
+        _jsApiKernel = jsApiKernel ?? throw new ArgumentNullException(nameof(jsApiKernel));
+        _scriptBox = jsApiKernel.GetRequiredService<IScriptBox>();
         _tokenSink = tokenSink ?? throw new ArgumentNullException(nameof(tokenSink));
     }
 
@@ -173,11 +175,6 @@ internal sealed class PerformanceBenchmark
 
         try
         {
-            // 1. Generate the script
-            // Create a kernel specifically for the discovery and generation phase
-            var discoveryKernel = Kernel.CreateBuilder().Build();
-            var plugin = discoveryKernel.ImportPluginFromObject(new ScriptBoxDiscoveryPlugin(_scriptBox), "scriptbox_discovery");
-            
             var systemPrompt = "You are a helpful assistant. Use the available tools to solve the user's request.";
 
             var executionSettings = new OpenAIPromptExecutionSettings
@@ -186,47 +183,32 @@ internal sealed class PerformanceBenchmark
             };
 
             var history = new ChatHistory(systemPrompt);
-            history.AddUserMessage($"Write a JavaScript script to perform the following task using the available ScriptBox APIs. You MUST use the `scriptbox_discovery-get_schema` tool to see what APIs are available before writing the code: {taskDescription}");
+            history.AddUserMessage(taskDescription + "\n\nUse the tools available to solve the user's request.");
 
-            // We pass the discoveryKernel which has the discovery tools
-            var messages = await _chat.GetChatMessageContentsAsync(history, executionSettings, discoveryKernel).ConfigureAwait(false);
+            // The kernel has both ScriptBoxPlugin (run_js) and ScriptBoxDiscoveryPlugin (get_schema)
+            var messages = await _chat.GetChatMessageContentsAsync(history, executionSettings, _jsApiKernel).ConfigureAwait(false);
             
-            var fullContent = messages?.LastOrDefault()?.Content ?? "";
-
-            // Retry logic if content is empty (model stopped early)
-            int retries = 0;
-            while (string.IsNullOrWhiteSpace(fullContent) && retries < 2)
-            {
-                 // Nudge the model to continue
-                 history.AddUserMessage("You have not generated the script yet. Please call `scriptbox_discovery-get_schema` to see the available APIs, then write the JavaScript code.");
-                 
-                 messages = await _chat.GetChatMessageContentsAsync(history, executionSettings, discoveryKernel).ConfigureAwait(false);
-                 fullContent = messages.LastOrDefault()?.Content ?? "";
-                 retries++;
-            }
-            
-            // Debug: Log the raw content if generation seems to fail
-            if (string.IsNullOrWhiteSpace(fullContent))
-            {
-                // Console.WriteLine("[JS API Debug] Model returned empty content.");
-            }
-
-            generatedScript = ExtractCodeBlock(fullContent);
-
-            if (string.IsNullOrWhiteSpace(generatedScript))
-            {
-                stopwatch.Stop();
-                Console.WriteLine($"[JS API Debug] Failed to extract script. Raw content:\n{fullContent}");
-                // Get accurate token count from sink
-                var (inputFail, outputFail) = _tokenSink.Snapshot();
-                return new BenchmarkResult("JavaScript API", stopwatch.ElapsedMilliseconds, 1, "Failed to generate script", false, (int)(inputFail + outputFail));
-            }
-
-            // 2. Execute the script
-            await using var session = _scriptBox.CreateSession();
-            var resultExec = await session.RunAsync(generatedScript).ConfigureAwait(false);
-
             stopwatch.Stop();
+
+            var result = messages.LastOrDefault();
+            var content = result?.Content ?? "No response";
+
+            // Find the script that was executed (if any)
+            var runJsCall = history
+                .SelectMany(m => m.Items ?? Enumerable.Empty<KernelContent>())
+                .OfType<FunctionCallContent>()
+                .FirstOrDefault(f => f.FunctionName == "run_js");
+            
+            if (runJsCall?.Arguments != null && runJsCall.Arguments.TryGetValue("code", out var codeObj))
+            {
+                generatedScript = codeObj?.ToString() ?? "";
+            }
+
+            // Count tool invocations
+            var invocationCount = history
+                .SelectMany(m => m.Items ?? Enumerable.Empty<KernelContent>())
+                .OfType<FunctionCallContent>()
+                .Count();
             
             // Get accurate token count from sink
             var (input, output) = _tokenSink.Snapshot();
@@ -235,8 +217,8 @@ internal sealed class PerformanceBenchmark
             return new BenchmarkResult(
                 Method: "JavaScript API",
                 ElapsedMilliseconds: stopwatch.ElapsedMilliseconds,
-                ToolInvocations: history.Count(m => m.Items?.Any(i => i is FunctionCallContent) == true),
-                Result: resultExec?.ToString() ?? "No result",
+                ToolInvocations: invocationCount,
+                Result: content,
                 Success: true,
                 TotalTokens: totalTokens,
                 GeneratedScript: generatedScript
@@ -278,20 +260,6 @@ internal sealed class PerformanceBenchmark
             }
         }
         return total;
-    }
-
-    private string ExtractCodeBlock(string text)
-    {
-        // Match code blocks with or without language identifier
-        var match = System.Text.RegularExpressions.Regex.Match(text, @"```(?:javascript|js)?\s*([\s\S]*?)\s*```");
-        if (match.Success)
-        {
-            return match.Groups[1].Value;
-        }
-        // Fallback: if the text starts with code but has no closing block (truncated) or just raw code
-        if (!text.Contains("```")) return text;
-        
-        return text;
     }
 
 

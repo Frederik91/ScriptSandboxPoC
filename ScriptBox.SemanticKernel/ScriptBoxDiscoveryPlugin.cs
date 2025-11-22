@@ -46,6 +46,7 @@ public class ScriptBoxDiscoveryPlugin
             sb.AppendLine("3. Do NOT output bare object literals at the end.");
             sb.AppendLine("4. Use the exact namespace and function names listed above.");
             sb.AppendLine("5. Do NOT use 'require' or 'import'. The namespaces are already global.");
+            sb.AppendLine("6. Do NOT include comments in the code to keep it concise.");
             sb.AppendLine();
             sb.AppendLine("NOW, based on the user's request and this schema, WRITE THE JAVASCRIPT CODE IMMEDIATELY.");
 
