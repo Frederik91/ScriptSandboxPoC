@@ -35,71 +35,116 @@ Modern AI copilots constantly emit small snippets of JavaScript/TypeScript that 
 
 ## Defining your own ScriptBox API
 
-The finished product should feel like this for a consuming team:
+ScriptBox supports two approaches for exposing .NET APIs to JavaScript:
 
-```ts
-// scripts/myScriptBoxApi.ts – written by the app developer
-const scriptboxApi = {
-  // Hook directly into host methods exposed by IHostApi or custom registries
-  files: {
-    read: __scriptbox.createMethod('MyFiles.Read'),
-    write: __scriptbox.createMethod('MyFiles.Write'),
-  },
-  http: {
-    request(options: RequestOptions) {
-      return __scriptbox.hostCall('Http.Request', [JSON.stringify(options)]);
-    },
-  },
-  crm: {
-    createLead: __scriptbox.createMethod('Crm.CreateLead'),
-  },
-};
+### 1. Attribute-Based APIs (Recommended)
 
-(globalThis as any).scriptbox = scriptboxApi;
-```
-
-On the .NET side the developer either:
-
-1. Implements methods on `IHostApi` (e.g., extends `HostApiImpl`) and routes the JSON payloads manually, **or**
-2. Uses `Worker.Core.HostApi.ApiRegistry` to reflect over classes marked with `[HostMethod]` and automatically expose them as `Namespace.Method` host calls. (The registry exists today; wiring it into `WasmScriptExecutor` is the remaining TODO.)
-
-Because bootstrap scripts are configurable, shipping `scripts/myScriptBoxApi.js` is as easy as:
+The simplest way to expose APIs is using `[SandboxApi]` and `[SandboxMethod]` attributes:
 
 ```csharp
-var config = new SandboxConfiguration
+[SandboxApi("files")]
+public class FileApi
 {
-    BootstrapScripts = new List<string>
+    [SandboxMethod("read")]
+    public string ReadText(string path) => File.ReadAllText(path);
+
+    [SandboxMethod("write")]
+    public void WriteText(string path, string content) => File.WriteAllText(path, content);
+}
+
+[SandboxApi("crm")]
+public class CrmApi
+{
+    [SandboxMethod("createLead")]
+    public async Task<Guid> CreateLeadAsync(string name, string email)
     {
-        Path.Combine("scripts", "sdk", "scriptbox.js"),
-        Path.Combine("scripts", "myAssistantApi.js")
+        // Your CRM logic here
+        return Guid.NewGuid();
     }
-};
-var executor = new WasmScriptExecutor(config);
+}
+
+var scriptBox = ScriptBoxBuilder
+    .Create()
+    .RegisterApisFrom<FileApi>()
+    .RegisterApisFrom<CrmApi>()
+    .Build();
+```
+
+ScriptBox automatically generates the JavaScript bootstrap code, making these APIs available as:
+
+```js
+// Automatically generated, no manual bootstrap needed
+const content = files.read('/path/to/file.txt');
+files.write('/path/to/output.txt', 'Hello World');
+
+const leadId = crm.createLead('John Doe', 'john@example.com');
+```
+
+### 2. Low-Level HostApiBuilder (Advanced)
+
+For more control, use the low-level `HostApiBuilder` to register JSON-RPC style handlers:
+
+```csharp
+var scriptBox = ScriptBoxBuilder
+    .Create()
+    .ConfigureHostApi(builder => builder
+        .RegisterHandler("MyFiles.Read", args => {
+            var path = args.GetString(0);
+            return File.ReadAllText(path);
+        })
+        .RegisterHandler("MyFiles.Write", args => {
+            var path = args.GetString(0);
+            var content = args.GetString(1);
+            File.WriteAllText(path, content);
+            return null;
+        }))
+    .WithAdditionalBootstrap(async _ =>
+        "globalThis.files = { read: (path) => __scriptbox.hostCall('MyFiles.Read', [path]) };")
+    .Build();
 ```
 
 ## Developer workflow
 
-1. **Author your API definitions in TypeScript** using the helper:
-   - Use `__scriptbox.createMethod("Namespace.Member")` for simple calls.
-   - Use `__scriptbox.hostCall(...)` when you need to preprocess arguments (e.g., serialize objects).
-2. **Bundle the bootstrap scripts** (`scriptbox.js` + your API file) into the Worker output. We currently rely on simple file copies; future work includes `npm run build` tasks.
-3. **Update the .NET host** to expose matching methods:
-   - Extend `HostApiImpl` (or wrap it) for file/HTTP features.
-   - Plug in domain services through `ApiRegistry` so you do not need to edit the core runtime.
-4. **Write tests** in `ScriptBox.Tests` using `Mock<IHostApi>` to verify the QuickJS stack exercises your APIs correctly.
+1. **Define your APIs using attributes**:
+   - Mark classes with `[SandboxApi("namespace")]`
+   - Mark public methods with `[SandboxMethod("methodName")]`
+   - Both static and instance methods are supported
+   - Async methods (`Task<T>`) are automatically handled
 
-## Future roadmap (MVP → GA)
+2. **Register APIs with ScriptBoxBuilder**:
+   ```csharp
+   var scriptBox = ScriptBoxBuilder
+       .Create()
+       .RegisterApisFrom<MyApi>()
+       .Build();
+   ```
 
-| Area | MVP Target | Future Enhancements |
-|------|------------|---------------------|
-| Bootstrap system | Configurable list (done) | Declarative manifest & hashed cache |
-| API ergonomics | `__scriptbox` helper + example API (done) | Turn ApiRegistry into first-class feature with codegen for TypeScript typings |
-| Isolation | Timeouts + filesystem sandbox | Fuel-based CPU limits, memory quotas |
-| Tooling | Manual docs (this file + README) | `dotnet tool` / `npm` scaffolder to spin up new ScriptBox APIs |
+3. **Use dependency injection (optional)**:
+   ```csharp
+   services.AddScriptBox((box, sp) => {
+       box.RegisterApisFrom<MyApi>();  // Instance resolved via DI
+   });
+   ```
+
+4. **Write tests**:
+   - Use the fluent builder in tests
+   - Integration tests verify the full stack (C# → WASM → JavaScript)
+   - Unit tests can mock individual components
+
+## Future roadmap
+
+| Area | Current State | Future Enhancements |
+|------|--------------|---------------------|
+| API Definition | Attribute-based with `[SandboxApi]` and `[SandboxMethod]` | TypeScript declaration file generation from attributes |
+| Bootstrap system | Configurable via builder | Declarative manifest & hashed cache |
+| Isolation | Timeouts + WASM sandbox | Fuel-based CPU limits, memory quotas |
+| Semantic Kernel | Full integration with plugin discovery | Enhanced type mapping, streaming support |
+| Tooling | Manual docs (README + this file) | `dotnet tool` / `npm` scaffolder to spin up new ScriptBox APIs |
 | Observability | Basic logging | Structured tracing, metrics, script replay |
 
 ## Takeaways
 
-- The **core deliverable** is the combination of `WasmScriptExecutor` + `scriptbox.wasm` + `__scriptbox`. Everything else (including our sample `scriptbox`) is optional sugar provided for convenience.
-- Teams can roll their own JS/TS APIs, inject them via `BootstrapScripts`, and expose any host capability by implementing `IHostApi` or plugging into `ApiRegistry`.
-- Documentation, samples, and packaging should push developers toward creating their own ScriptBox APIs while reusing the furnished bridge to stay safe and fast.
+- The **core deliverable** is the combination of `WasmScriptExecutor` + `scriptbox.wasm` + `__scriptbox`. Everything else is built on top of this foundation.
+- **Attribute-based APIs** (`[SandboxApi]` and `[SandboxMethod]`) are the recommended way to expose .NET functionality to JavaScript, with automatic bootstrap generation.
+- **Semantic Kernel integration** enables LLM agents to discover and invoke ScriptBox APIs through a unified `run_js` tool, providing significant token savings for multi-step tasks.
+- Teams can extend ScriptBox by implementing custom `ISandboxApiScanner` instances or using the low-level `HostApiBuilder` for advanced scenarios.

@@ -4,7 +4,6 @@ using Xunit;
 using Moq;
 using global::ScriptBox.Core.HostApi;
 using global::ScriptBox.Core.WasmExecution;
-using global::ScriptBox.Services;
 
 /// <summary>
 /// Integration tests that perform actual WASM/QuickJS code execution.
@@ -45,11 +44,10 @@ public class WasmIntegrationTests
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = "return 1 + 1";
 
         // Act
-        var result = workerMethods.RunScript(code);
+        var result = executor.ExecuteScript(code);
 
         // Assert
         Assert.NotNull(result);
@@ -61,7 +59,6 @@ public class WasmIntegrationTests
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 function sum(a, b) {
     return a + b;
@@ -69,7 +66,7 @@ function sum(a, b) {
 return sum(5, 3)";
 
         // Act
-        var result = workerMethods.RunScript(code);
+        var result = executor.ExecuteScript(code);
 
         // Assert
         Assert.NotNull(result);
@@ -81,11 +78,10 @@ return sum(5, 3)";
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = "return 'Hello World'";
 
         // Act
-        var result = workerMethods.RunScript(code);
+        var result = executor.ExecuteScript(code);
 
         // Assert
         Assert.NotNull(result);
@@ -97,11 +93,10 @@ return sum(5, 3)";
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = "return true";
 
         // Act
-        var result = workerMethods.RunScript(code);
+        var result = executor.ExecuteScript(code);
 
         // Assert
         Assert.NotNull(result);
@@ -113,11 +108,10 @@ return sum(5, 3)";
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = "return null";
 
         // Act
-        var result = workerMethods.RunScript(code);
+        var result = executor.ExecuteScript(code);
 
         // Assert
         Assert.NotNull(result);
@@ -129,11 +123,10 @@ return sum(5, 3)";
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = "undefined";
 
         // Act
-        var result = workerMethods.RunScript(code);
+        var result = executor.ExecuteScript(code);
 
         // Assert
         Assert.NotNull(result);
@@ -145,11 +138,10 @@ return sum(5, 3)";
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = "return { name: 'Alice', age: 30 }";
 
         // Act
-        var result = workerMethods.RunScript(code);
+        var result = executor.ExecuteScript(code);
 
         // Assert
         Assert.NotNull(result);
@@ -164,11 +156,10 @@ return sum(5, 3)";
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = "return [1, 2, 3, 4, 5]";
 
         // Act
-        var result = workerMethods.RunScript(code);
+        var result = executor.ExecuteScript(code);
 
         // Assert
         Assert.NotNull(result);
@@ -180,11 +171,10 @@ return sum(5, 3)";
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = "console.log('Hello from QuickJS!')";
 
         // Act
-        workerMethods.RunScript(code);
+        executor.ExecuteScript(code);
 
         // Assert
         _mockHostApi.Verify(
@@ -197,7 +187,6 @@ return sum(5, 3)";
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 console.log('first');
 console.log('second');
@@ -205,7 +194,7 @@ console.log('third');
 ";
 
         // Act
-        workerMethods.RunScript(code);
+        executor.ExecuteScript(code);
 
         // Assert
         _mockHostApi.Verify(
@@ -218,14 +207,13 @@ console.log('third');
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 const result = scriptbox.add(5, 3);
 console.log('Result: ' + result);
 ";
 
         // Act
-        workerMethods.RunScript(code);
+        executor.ExecuteScript(code);
 
         // Assert
         _mockHostApi.Verify(
@@ -238,7 +226,6 @@ console.log('Result: ' + result);
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 let x = 10;
 let y = 20;
@@ -248,7 +235,7 @@ return sum;
 ";
 
         // Act
-        var result = workerMethods.RunScript(code);
+        var result = executor.ExecuteScript(code);
 
         // Assert
         Assert.NotNull(result);
@@ -263,7 +250,6 @@ return sum;
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 let arr = [1, 2, 3, 4, 5];
 let sum = arr.reduce((a, b) => a + b, 0);
@@ -271,7 +257,7 @@ console.log('Array sum: ' + sum);
 ";
 
         // Act
-        var exception = Record.Exception(() => workerMethods.RunScript(code));
+        var exception = Record.Exception(() => executor.ExecuteScript(code));
 
         // Assert
         Assert.Null(exception);
@@ -285,7 +271,6 @@ console.log('Array sum: ' + sum);
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 for (let i = 0; i < 3; i++) {
     console.log('iteration: ' + i);
@@ -293,7 +278,7 @@ for (let i = 0; i < 3; i++) {
 ";
 
         // Act
-        workerMethods.RunScript(code);
+        executor.ExecuteScript(code);
 
         // Assert
         _mockHostApi.Verify(
@@ -306,7 +291,6 @@ for (let i = 0; i < 3; i++) {
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 function greet(name) {
     return 'Hello, ' + name + '!';
@@ -316,7 +300,7 @@ console.log(message);
 ";
 
         // Act
-        var exception = Record.Exception(() => workerMethods.RunScript(code));
+        var exception = Record.Exception(() => executor.ExecuteScript(code));
 
         // Assert
         Assert.Null(exception);
@@ -330,7 +314,6 @@ console.log(message);
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 let value = 42;
 if (value > 40) {
@@ -341,7 +324,7 @@ if (value > 40) {
 ";
 
         // Act
-        workerMethods.RunScript(code);
+        executor.ExecuteScript(code);
 
         // Assert
         _mockHostApi.Verify(
@@ -354,7 +337,6 @@ if (value > 40) {
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 let person = {
     name: 'Alice',
@@ -364,7 +346,7 @@ console.log(person.name + ' is ' + person.age);
 ";
 
         // Act
-        var exception = Record.Exception(() => workerMethods.RunScript(code));
+        var exception = Record.Exception(() => executor.ExecuteScript(code));
 
         // Assert
         Assert.Null(exception);
@@ -378,11 +360,10 @@ console.log(person.name + ' is ' + person.age);
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = "{{invalid js syntax";
 
         // Act
-        var exception = Record.Exception(() => workerMethods.RunScript(code));
+        var exception = Record.Exception(() => executor.ExecuteScript(code));
 
         // Assert
         Assert.NotNull(exception);
@@ -395,11 +376,10 @@ console.log(person.name + ' is ' + person.age);
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = "console.log(undefinedVariable);";
 
         // Act
-        var exception = Record.Exception(() => workerMethods.RunScript(code));
+        var exception = Record.Exception(() => executor.ExecuteScript(code));
 
         // Assert
         Assert.NotNull(exception);
@@ -411,7 +391,6 @@ console.log(person.name + ' is ' + person.age);
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 function calculate() {
     let numbers = [1, 2, 3, 4, 5];
@@ -426,7 +405,7 @@ console.log('Total: ' + total);
 ";
 
         // Act
-        var exception = Record.Exception(() => workerMethods.RunScript(code));
+        var exception = Record.Exception(() => executor.ExecuteScript(code));
 
         // Assert
         Assert.Null(exception);
@@ -440,7 +419,6 @@ console.log('Total: ' + total);
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 let text = 'hello world';
 let upper = text.toUpperCase();
@@ -449,7 +427,7 @@ console.log(parts.join('-'));
 ";
 
         // Act
-        var exception = Record.Exception(() => workerMethods.RunScript(code));
+        var exception = Record.Exception(() => executor.ExecuteScript(code));
 
         // Assert
         Assert.Null(exception);
@@ -463,7 +441,6 @@ console.log(parts.join('-'));
     {
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 try {
     throw new Error('test error');
@@ -473,7 +450,7 @@ try {
 ";
 
         // Act
-        var exception = Record.Exception(() => workerMethods.RunScript(code));
+        var exception = Record.Exception(() => executor.ExecuteScript(code));
 
         // Assert
         Assert.Null(exception);
@@ -491,7 +468,6 @@ try {
                     .Callback<string>(msg => loggedMessages.Add(msg));
 
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
-        var workerMethods = new WorkerMethods(executor);
         var code = @"
 console.log('first');
 let sum1 = scriptbox.add(1, 2);
@@ -502,7 +478,7 @@ console.log('last');
 ";
 
         // Act
-        workerMethods.RunScript(code);
+        executor.ExecuteScript(code);
 
         // Assert
         Assert.Equal(4, loggedMessages.Count);

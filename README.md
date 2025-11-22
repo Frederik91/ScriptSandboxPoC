@@ -11,7 +11,7 @@ We ran a simple benchmark comparing **Standard Tool Calling** (LLM calls tools o
 | **Math Operations** (7 steps) | 15,808 | 5756 | **~64%** |
 | **String/Array Ops** (8 steps) | 16,860 | 7,520 | **~55%** |
 
-*Note: These results are from our own internal benchmarks (`Examples/Scriptbox.SemanticKernel.Example`) running on GPT-5-mini. Actual savings depend on task complexity and prompt structure.*
+*Note: These results are from our own internal benchmarks (`Examples/Scriptbox.SemanticKernel.Example`) running on GPT-4o-mini. Actual savings depend on task complexity and prompt structure.*
 
 ## Packages
 
@@ -182,18 +182,21 @@ Need a working sample? `Examples/Scriptbox.SemanticKernel.Example/Program.cs` sp
 ## CI & Release
 
 * `.github/workflows/ci.yml` builds and tests the entire solution on every push/PR using .NET 9 & 10 SDKs.
-* `.github/workflows/prerelease.yml` watches tags (`v*-beta.*`, etc.), packs both NuGet packages (`ScriptBox` and `ScriptBox.DependencyInjection`), and pushes them to nuget.org. See `docs/ci.md` for details.
+* `.github/workflows/prerelease.yml` watches tags (`v*-beta.*`, etc.), packs all NuGet packages (`ScriptBox`, `ScriptBox.DependencyInjection`, and `ScriptBox.SemanticKernel`), and pushes them to nuget.org.
 
 ## Repository Structure
 
 ```
-ScriptBox/                     # Core runtime
-ScriptBox.DependencyInjection/ # Optional DI helpers
-ScriptBox.Tests/               # xUnit test suite
-ScriptBox.Demo/                # Minimal demo app
-docs/                          # Additional documentation (CI, vision, usage)
+ScriptBox/                          # Core runtime
+ScriptBox.DependencyInjection/      # Optional DI helpers
+ScriptBox.SemanticKernel/           # Semantic Kernel integration
+ScriptBox.Tests/                    # xUnit test suite
+ScriptBox.SemanticKernel.Tests/     # Semantic Kernel integration tests
+Examples/ScriptBox.Example/         # Basic usage examples
+Examples/Scriptbox.SemanticKernel.Example/  # SK integration & benchmarks
+docs/                               # Additional documentation (vision)
 ```
 
 ---
 
-Contributions and issues are welcome. See `docs/vision.md` for the long-term roadmap and architectural goals.***
+Contributions and issues are welcome. See `docs/vision.md` for the long-term roadmap and architectural goals.
