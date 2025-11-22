@@ -1,17 +1,17 @@
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.Ollama;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
 
 namespace Scriptbox.SemanticKernel.Example;
 
 /// <summary>
 /// Challenges the LLM to call the ScriptBox tool directly via Semantic Kernel function calling.
 /// </summary>
-internal sealed class OllamaScriptAuthor
+internal sealed class OpenAIScriptAuthor
 {
     private readonly IChatCompletionService _chat;
 
-    public OllamaScriptAuthor(IChatCompletionService chat)
+    public OpenAIScriptAuthor(IChatCompletionService chat)
     {
         _chat = chat ?? throw new ArgumentNullException(nameof(chat));
     }
@@ -32,9 +32,9 @@ internal sealed class OllamaScriptAuthor
             Always invoke the tool before answering.
             """;
 
-        var executionSettings = new OllamaPromptExecutionSettings
+        var executionSettings = new OpenAIPromptExecutionSettings
         {
-            FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
+            ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
         };
 
         var history = new ChatHistory(prompt);

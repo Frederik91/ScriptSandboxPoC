@@ -9,6 +9,7 @@ internal static class DefaultRuntimeResources
 {
     private const string WasmResourceName = "ScriptBox.Wasm.scriptbox.wasm";
     private const string CoreBootstrapResourceName = "ScriptBox.Js.sandbox-api.js";
+    private const string ToolsBootstrapResourceName = "ScriptBox.Js.bootstrap-utils.js";
 
     public static ReadOnlyMemory<byte> LoadEmbeddedWasm()
     {
@@ -17,7 +18,16 @@ internal static class DefaultRuntimeResources
 
     public static string LoadCoreBootstrap()
     {
-        return ReadAllText(CoreBootstrapResourceName);
+        var coreBootstrap = ReadAllText(CoreBootstrapResourceName);
+        var toolsBootstrap = ReadAllText(ToolsBootstrapResourceName);
+        
+        // Combine both bootstraps
+        var combined = new StringBuilder();
+        combined.AppendLine(coreBootstrap);
+        combined.AppendLine();
+        combined.AppendLine(toolsBootstrap);
+        
+        return combined.ToString();
     }
 
     private static ReadOnlyMemory<byte> ReadAllBytes(string resourceName)

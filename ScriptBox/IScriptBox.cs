@@ -19,4 +19,9 @@ public interface IScriptBox : IDisposable
     /// <param name="timeout">Optional timeout for the session. If not specified, uses the default timeout.</param>
     /// <returns>A new script session.</returns>
     ScriptSession CreateSession(TimeSpan? timeout = null);
+
+    /// <summary>
+    /// Gets metadata associated with this ScriptBox instance.
+    /// </summary>
+    IReadOnlyDictionary<string, object> Metadata { get; }
 }

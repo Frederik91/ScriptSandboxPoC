@@ -21,6 +21,8 @@ public sealed class ScriptBoxBuilder
     private readonly Dictionary<string, string?> _envVariables = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<Func<CancellationToken, Task<string>>> _bootstrapLoaders = new();
     private readonly List<Type> _registeredApiTypes = new();
+    private readonly Dictionary<string, object> _metadata = new();
+    private readonly List<ISandboxApiScanner> _apiScanners = new();
     private string? _wasmModulePath;
     private byte[]? _wasmModuleBytes;
     private TimeSpan _defaultTimeout = TimeSpan.FromMilliseconds(WasmConfiguration.DefaultTimeoutMs);
@@ -31,9 +33,20 @@ public sealed class ScriptBoxBuilder
     private ScriptBoxBuilder()
     {
         _bootstrapLoaders.Add(_ => Task.FromResult(DefaultRuntimeResources.LoadCoreBootstrap()));
+        _apiScanners.Add(new AttributedSandboxApiScanner());
     }
 
     public static ScriptBoxBuilder Create() => new();
+
+    public ScriptBoxBuilder AddApiScanner(ISandboxApiScanner scanner)
+    {
+        if (scanner is null)
+        {
+            throw new ArgumentNullException(nameof(scanner));
+        }
+        _apiScanners.Add(scanner);
+        return this;
+    }
 
     public ScriptBoxBuilder WithWasmModule(string path)
     {
@@ -145,6 +158,26 @@ public sealed class ScriptBoxBuilder
         return this;
     }
 
+    public ScriptBoxBuilder WithMetadata(string key, object value)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            throw new ArgumentException("Key cannot be null or empty", nameof(key));
+        }
+
+        _metadata[key] = value;
+        return this;
+    }
+
+    public T? GetMetadata<T>(string key)
+    {
+        if (_metadata.TryGetValue(key, out var value) && value is T typedValue)
+        {
+            return typedValue;
+        }
+        return default;
+    }
+
     public IScriptBox Build()
     {
         ProcessAttributedApis();
@@ -167,7 +200,7 @@ public sealed class ScriptBoxBuilder
         GC.KeepAlive(_envVariables);
         GC.KeepAlive(_memoryLimitMb);
 
-        return new ScriptBox(executor, bootstrapCode, _defaultTimeout);
+        return new ScriptBox(executor, bootstrapCode, _defaultTimeout, _metadata);
     }
 
     private WasmModuleSource ResolveModuleSource()
@@ -266,10 +299,19 @@ public sealed class ScriptBoxBuilder
         var descriptors = new List<SandboxApiDescriptor>();
         foreach (var type in _registeredApiTypes)
         {
-            if (!AttributedSandboxApiRegistry.TryCreateDescriptor(type, out var descriptor) || descriptor is null)
+            SandboxApiDescriptor? descriptor = null;
+            foreach (var scanner in _apiScanners)
+            {
+                if (scanner.TryCreateDescriptor(type, out descriptor))
+                {
+                    break;
+                }
+            }
+
+            if (descriptor is null)
             {
                 throw new InvalidOperationException(
-                    $"Type '{type.FullName}' is not annotated with [SandboxApi] or has no [SandboxMethod] members.");
+                    $"Type '{type.FullName}' could not be processed by any registered API scanner. Ensure it has the correct attributes (e.g. [SandboxApi]).");
             }
 
             descriptors.Add(descriptor);

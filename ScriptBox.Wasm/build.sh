@@ -158,6 +158,8 @@ $CLANG \
     -Wl,--export=get_last_error_len \
     -Wl,--export=get_result_ptr \
     -Wl,--export=get_result_len \
+    -Wl,--export=get_script_buffer_ptr \
+    -Wl,--export=get_script_buffer_len \
     -Wl,--no-entry \
     -Wl,--strip-all
 

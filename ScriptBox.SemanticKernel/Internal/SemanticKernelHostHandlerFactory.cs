@@ -92,6 +92,23 @@ internal static class SemanticKernelHostHandlerFactory
             return Guid.Parse(Convert.ToString(raw, CultureInfo.InvariantCulture)!);
         }
 
+        if (raw is System.Collections.IEnumerable enumerable && targetType.IsArray)
+        {
+            var elementType = targetType.GetElementType()!;
+            var list = new List<object?>();
+            foreach (var item in enumerable)
+            {
+                list.Add(ConvertValue(item, elementType));
+            }
+            
+            var array = Array.CreateInstance(elementType, list.Count);
+            for (int i = 0; i < list.Count; i++)
+            {
+                array.SetValue(list[i], i);
+            }
+            return array;
+        }
+
         return Convert.ChangeType(raw, targetType, CultureInfo.InvariantCulture);
     }
 

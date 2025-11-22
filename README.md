@@ -2,6 +2,17 @@
 
 ScriptBox is a reusable QuickJS-in-WASM sandbox for .NET. It lets you run untrusted JavaScript/TypeScript snippets inside a deterministic WASM runtime while exposing a curated host API written in C#. The runtime ships as a NuGet package and can be configured through a fluent builder; dependency injection support lives in a separate optional package.
 
+## Performance Benchmarks
+
+We ran a simple benchmark comparing **Standard Tool Calling** (LLM calls tools one by one) vs **ScriptBox** (LLM writes a script to call tools). The results show significant token savings for multi-step tasks.
+
+| Task | Tool Calling Tokens | ScriptBox Tokens | Reduction |
+|------|---------------------|------------------|-----------|
+| **Math Operations** (7 steps) | 15,616 | 3,188 | **~80%** |
+| **String/Array Ops** (8 steps) | 21,620 | 4,162 | **~81%** |
+
+*Note: These results are from our own internal benchmarks (`Examples/Scriptbox.SemanticKernel.Example`) running on GPT-5-mini. Actual savings depend on task complexity and prompt structure.*
+
 ## Packages
 
 | Package | Description |

@@ -49,6 +49,16 @@ public static class WasmConfiguration
     public const string GetResultLenFunctionName = "get_result_len";
 
     /// <summary>
+    /// WASM function name for retrieving script buffer pointer.
+    /// </summary>
+    public const string GetScriptBufferPtrFunctionName = "get_script_buffer_ptr";
+
+    /// <summary>
+    /// WASM function name for retrieving script buffer length.
+    /// </summary>
+    public const string GetScriptBufferLenFunctionName = "get_script_buffer_len";
+
+    /// <summary>
     /// Success status code returned by eval_js.
     /// </summary>
     public const int SuccessStatusCode = 0;

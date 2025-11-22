@@ -126,16 +126,28 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
         string fullScript;
         if (string.IsNullOrWhiteSpace(bootstrapJs))
         {
-            fullScript = jsCode;
+            fullScript = WrapUserScriptInIife(jsCode);
         }
         else
         {
             // Terminate bootstrap, add void 0 to discard any bootstrap return value,
-            // then execute user code - JavaScript returns the value of the last expression
-            fullScript = $"{bootstrapJs};\nvoid 0;\n{jsCode}";
+            // then wrap user code in an IIFE to support return statements at the top level
+            fullScript = $"{bootstrapJs};\nvoid 0;\n{WrapUserScriptInIife(jsCode)}";
         }
 
         return ExecuteEvalFunction(instance, memory, fullScript);
+    }
+
+    /// <summary>
+    /// Wraps user script code in an Immediately Invoked Function Expression (IIFE).
+    /// This allows scripts to use top-level return statements, which aligns with
+    /// how AI models typically generate JavaScript code.
+    /// </summary>
+    /// <param name="jsCode">The user script code to wrap</param>
+    /// <returns>The user code wrapped in an IIFE that is immediately invoked</returns>
+    private static string WrapUserScriptInIife(string jsCode)
+    {
+        return $"(function() {{\n{jsCode}\n}})()";
     }
 
     /// <summary>
@@ -194,21 +206,29 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
     /// </summary>
     private int HandleHostCallCallback(Caller caller, int inPtr, int inLen, int outPtr, int outCap)
     {
-        var memory = caller.GetMemory(WasmConfiguration.MemoryExportName)
-                    ?? throw new InvalidOperationException("No memory export");
-
-        var jsonRequest = ReadStringFromMemory(memory, inPtr, inLen);
-        var jsonResponse = HandleHostCall(jsonRequest);
-        var responseBytes = Encoding.UTF8.GetBytes(jsonResponse);
-
-        // Write response JSON to WASM memory
-        int bytesToWrite = Math.Min(responseBytes.Length, outCap);
-        for (var i = 0; i < bytesToWrite; i++)
+        try
         {
-            memory.Write(outPtr + i, responseBytes[i]);
-        }
+            var memory = caller.GetMemory(WasmConfiguration.MemoryExportName)
+                        ?? throw new InvalidOperationException("No memory export");
 
-        return bytesToWrite;
+            var jsonRequest = ReadStringFromMemory(memory, inPtr, inLen);
+            var jsonResponse = HandleHostCall(jsonRequest);
+            var responseBytes = Encoding.UTF8.GetBytes(jsonResponse);
+
+            // Write response JSON to WASM memory
+            int bytesToWrite = Math.Min(responseBytes.Length, outCap);
+            for (var i = 0; i < bytesToWrite; i++)
+            {
+                memory.Write(outPtr + i, responseBytes[i]);
+            }
+
+            return bytesToWrite;
+        }
+        catch (Exception)
+        {
+            // System.Console.Error.WriteLine($"[HostCall Error] {ex}");
+            throw; // Re-throw to cause trap
+        }
     }
 
     /// <summary>
@@ -216,7 +236,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
     /// </summary>
     private string ExecuteEvalFunction(Instance instance, Memory memory, string jsCode)
     {
-        var (ptr, len) = WriteStringToMemory(memory, jsCode);
+        var (ptr, len) = WriteStringToMemory(instance, memory, jsCode);
 
         var eval = instance.GetFunction<int, int, int>(WasmConfiguration.EvalFunctionName)
                   ?? throw new InvalidOperationException(
@@ -286,23 +306,44 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
     /// Writes JavaScript source code into WASM linear memory.
     /// </summary>
     /// <returns>A tuple of (memory offset, byte length).</returns>
-    private static (int ptr, int len) WriteStringToMemory(Memory memory, string jsCode)
+    private static (int ptr, int len) WriteStringToMemory(Instance instance, Memory memory, string jsCode)
     {
         var bytes = Encoding.UTF8.GetBytes(jsCode);
+        var (scriptPtr, maxScriptSize) = GetScriptBufferLocation(instance);
 
-        if (WasmConfiguration.ScriptMemoryOffset + bytes.Length > WasmConfiguration.MaxScriptSize)
+        if (bytes.Length > maxScriptSize)
         {
             throw new InvalidOperationException(
                 $"Script too large ({bytes.Length} bytes) for available WASM memory " +
-                $"(max {WasmConfiguration.MaxScriptSize - WasmConfiguration.ScriptMemoryOffset} bytes)");
+                $"(max {maxScriptSize} bytes)");
         }
 
         for (var i = 0; i < bytes.Length; i++)
         {
-            memory.Write(WasmConfiguration.ScriptMemoryOffset + i, bytes[i]);
+            memory.Write(scriptPtr + i, bytes[i]);
         }
 
-        return (WasmConfiguration.ScriptMemoryOffset, bytes.Length);
+        return (scriptPtr, bytes.Length);
+    }
+
+    /// <summary>
+    /// Determines the location and size of the script buffer in WASM memory.
+    /// Prefers dynamic lookup via exported functions, falls back to hardcoded defaults.
+    /// </summary>
+    private static (int ptr, int len) GetScriptBufferLocation(Instance instance)
+    {
+        // Try to get the dynamic script buffer from the WASM module
+        var getScriptBufferPtr = instance.GetFunction<int>(WasmConfiguration.GetScriptBufferPtrFunctionName);
+        var getScriptBufferLen = instance.GetFunction<int>(WasmConfiguration.GetScriptBufferLenFunctionName);
+
+        if (getScriptBufferPtr != null && getScriptBufferLen != null)
+        {
+            return (getScriptBufferPtr(), getScriptBufferLen());
+        }
+
+        // Fallback to hardcoded offset for backward compatibility with older WASM modules
+        return (WasmConfiguration.ScriptMemoryOffset, 
+                WasmConfiguration.MaxScriptSize - WasmConfiguration.ScriptMemoryOffset);
     }
 
     private static string ReadStringFromMemory(Memory memory, int ptr, int length)
@@ -370,7 +411,8 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
             {
                 var context = HostCallContext.FromJson(method!, root, CancellationToken.None);
                 var result = handler(context).GetAwaiter().GetResult();
-                return JsonSerializer.Serialize(new { result }, _jsonOptions);
+                var response = JsonSerializer.Serialize(new { result }, _jsonOptions);
+                return response;
             }
 
             if (!root.TryGetProperty("args", out var args))
@@ -396,6 +438,9 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
                 "HttpGet" => HandleHttpGetCall(args),
                 "HttpPost" => HandleHttpPostCall(args),
                 "HttpRequest" => HandleHttpRequestCall(args),
+                
+                // Tool Invocation Protocol
+                "tool.invoke" => HandleToolInvoke(args),
 
                 _ => $"{{\"error\":\"Unknown method: {method}\"}}"
             };
@@ -404,6 +449,45 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
         {
             return $"{{\"error\":\"Error processing host call: {ex.Message}\"}}";
         }
+    }
+
+    /// <summary>
+    /// Handles the tool.invoke host call from the sandbox.
+    /// This is used by the bootstrap-utils.ts proxy to invoke tools dynamically.
+    /// </summary>
+    private string HandleToolInvoke(JsonElement args)
+    {
+        // args[0] is the JSON string of the request
+        var requestJson = args[0].GetString();
+        if (string.IsNullOrEmpty(requestJson))
+        {
+             return "{\"error\":\"Missing request JSON\"}";
+        }
+
+        using var doc = JsonDocument.Parse(requestJson);
+        var root = doc.RootElement;
+        
+        if (!root.TryGetProperty("toolId", out var toolIdElement))
+        {
+            return "{\"error\":\"Missing toolId\"}";
+        }
+        
+        var toolId = toolIdElement.GetString();
+        if (string.IsNullOrEmpty(toolId))
+        {
+            return "{\"error\":\"Empty toolId\"}";
+        }
+
+        if (_jsonHandlers.TryGetValue(toolId!, out var handler))
+        {
+             // HostCallContext.FromJson expects an object with "args" property, 
+             // which matches the ToolInvocationRequest structure.
+             var context = HostCallContext.FromJson(toolId!, root, CancellationToken.None);
+             var result = handler(context).GetAwaiter().GetResult();
+             return JsonSerializer.Serialize(new { result }, _jsonOptions);
+        }
+        
+        return $"{{\"error\":\"Unknown tool: {toolId}\"}}";
     }
 
     /// <summary>

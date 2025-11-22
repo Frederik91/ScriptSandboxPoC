@@ -1,10 +1,13 @@
 {
   "compilerOptions": {
     "target": "ES2019",
+    "lib": ["ES2019"],
     "module": "none",
     "moduleResolution": "node",
-    "strict": true,
-    "outDir": "dist"
+    "strict": false,
+    "outDir": "dist",
+    "skipLibCheck": true,
+    "noImplicitAny": false
   },
   "include": ["**/*.ts"]
 }

@@ -260,22 +260,12 @@ internal static class AttributedSandboxApiRegistry
 
         if (methods.Count == 0)
         {
-            throw new InvalidOperationException(
-                $"Sandbox API '{type.FullName}' does not declare any methods marked with [SandboxMethod].");
+            return false;
         }
 
         descriptor = new SandboxApiDescriptor(type, apiAttribute.Name, methods, RequiresInstance: !isStatic);
+
         return true;
     }
 }
 
-internal sealed record SandboxApiDescriptor(
-    Type ApiType,
-    string JsNamespace,
-    IReadOnlyList<SandboxMethodDescriptor> Methods,
-    bool RequiresInstance);
-
-internal sealed record SandboxMethodDescriptor(string JsNamespace, string JsMethodName, MethodInfo Method)
-{
-    public string HostMethodName => $"{JsNamespace}.{JsMethodName}";
-}

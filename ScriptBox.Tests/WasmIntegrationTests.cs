@@ -46,7 +46,7 @@ public class WasmIntegrationTests
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
         var workerMethods = new WorkerMethods(executor);
-        var code = "1 + 1";
+        var code = "return 1 + 1";
 
         // Act
         var result = workerMethods.RunScript(code);
@@ -66,7 +66,7 @@ public class WasmIntegrationTests
 function sum(a, b) {
     return a + b;
 }
-sum(5, 3)";
+return sum(5, 3)";
 
         // Act
         var result = workerMethods.RunScript(code);
@@ -82,7 +82,7 @@ sum(5, 3)";
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
         var workerMethods = new WorkerMethods(executor);
-        var code = "'Hello World'";
+        var code = "return 'Hello World'";
 
         // Act
         var result = workerMethods.RunScript(code);
@@ -98,7 +98,7 @@ sum(5, 3)";
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
         var workerMethods = new WorkerMethods(executor);
-        var code = "true";
+        var code = "return true";
 
         // Act
         var result = workerMethods.RunScript(code);
@@ -114,7 +114,7 @@ sum(5, 3)";
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
         var workerMethods = new WorkerMethods(executor);
-        var code = "null";
+        var code = "return null";
 
         // Act
         var result = workerMethods.RunScript(code);
@@ -146,7 +146,7 @@ sum(5, 3)";
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
         var workerMethods = new WorkerMethods(executor);
-        var code = "({ name: 'Alice', age: 30 })";
+        var code = "return { name: 'Alice', age: 30 }";
 
         // Act
         var result = workerMethods.RunScript(code);
@@ -165,7 +165,7 @@ sum(5, 3)";
         // Arrange
         var executor = new WasmScriptExecutor(_mockHostApi.Object);
         var workerMethods = new WorkerMethods(executor);
-        var code = "[1, 2, 3, 4, 5]";
+        var code = "return [1, 2, 3, 4, 5]";
 
         // Act
         var result = workerMethods.RunScript(code);
@@ -244,7 +244,7 @@ let x = 10;
 let y = 20;
 let sum = x + y;
 console.log('Sum: ' + sum);
-sum;
+return sum;
 ";
 
         // Act
@@ -817,6 +817,137 @@ console.log('Body: ' + response.body);
         _mockHostApi.Verify(api => api.HttpRequest(It.IsAny<string>()), Times.Once);
         _mockHostApi.Verify(api => api.Log("Status: 200"), Times.Once);
         _mockHostApi.Verify(api => api.Log(It.Is<string>(msg => msg.StartsWith("Body:"))), Times.Once);
+    }
+
+    #endregion
+
+    #region Return Statement Tests
+
+    /// <summary>
+    /// Tests for supporting explicit return statements in user scripts.
+    /// User scripts are now wrapped in an IIFE (Immediately Invoked Function Expression)
+    /// to allow return statements at the top level, which aligns with how LLMs generate code.
+    /// </summary>
+
+    [Fact]
+    public void ExecuteScript_ExplicitReturnStatement_ReturnsValue()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var code = @"
+let x = 42;
+return x;
+";
+
+        // Act
+        var result = executor.ExecuteScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("42", result);
+    }
+
+    [Fact]
+    public void ExecuteScript_ReturnObject_ReturnsJsonObject()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var code = @"
+let result = { name: 'Alice', age: 30 };
+return result;
+";
+
+        // Act
+        var result = executor.ExecuteScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Contains("Alice", result);
+        Assert.Contains("30", result);
+    }
+
+    [Fact]
+    public void ExecuteScript_ReturnArray_ReturnsJsonArray()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var code = @"
+let arr = [1, 2, 3, 4, 5];
+return arr;
+";
+
+        // Act
+        var result = executor.ExecuteScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Contains("[", result);
+        Assert.Contains("]", result);
+    }
+
+    [Fact]
+    public void ExecuteScript_ReturnComplexStructure_ReturnsJson()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var code = @"
+let text = 'hello world';
+let upper = text.toUpperCase();
+let len = upper.length;
+
+return { 
+    text_ops: [upper, len], 
+    array_ops: [1, 2, 3]
+};
+";
+
+        // Act
+        var result = executor.ExecuteScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Contains("text_ops", result);
+        Assert.Contains("array_ops", result);
+        Assert.Contains("HELLO WORLD", result);
+    }
+
+    [Fact]
+    public void ExecuteScript_ExpressionAsReturnValue_ReturnsValue()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var code = @"
+let x = 10;
+let y = 20;
+return x + y
+";
+
+        // Act
+        var result = executor.ExecuteScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("30", result);
+    }
+
+    [Fact]
+    public void ExecuteScript_ReturnEarly_SkipsFollowingCode()
+    {
+        // Arrange
+        var executor = new WasmScriptExecutor(_mockHostApi.Object);
+        var code = @"
+let result = { value: 'early' };
+return result;
+// This code should not execute:
+throw new Error('Should not reach here');
+";
+
+        // Act
+        var result = executor.ExecuteScript(code);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Contains("early", result);
     }
 
     #endregion
