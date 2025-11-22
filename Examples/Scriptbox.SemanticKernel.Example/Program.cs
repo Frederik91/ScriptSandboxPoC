@@ -1,41 +1,29 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Scriptbox.SemanticKernel.Example;
 using ScriptBox;
 
-var endpoint = new Uri("http://localhost:11434");
-const string modelId = "qwen2.5";
+var config = new ConfigurationBuilder()
+    .AddUserSecrets<Program>()
+    .Build();
 
-var kernel = KernelSetup.BuildKernel(endpoint, modelId);
+string apiKey = config["OpenAI:ApiKey"] ?? throw new InvalidOperationException("OpenAI:ApiKey not found in user secrets.");
+string modelId = config["OpenAI:ModelId"] ?? "gpt-5-mini-2025-08-07";
 
-// Uncomment one of these to run:
-// await DemonstrateAiToolInvocationAsync(kernel);
-await RunPerformanceBenchmarkAsync(kernel);
+await RunPerformanceBenchmarkAsync(apiKey, modelId);
 
-static async Task DemonstrateAiToolInvocationAsync(Kernel kernel)
+static async Task RunPerformanceBenchmarkAsync(string apiKey, string modelId)
 {
-    var chat = kernel.GetRequiredService<IChatCompletionService>();
-    var toolChallenge = new OllamaScriptAuthor(chat);
-    var message = await toolChallenge.DescribeCurrentTimeAsync(kernel);
-
-    Console.WriteLine("=== Semantic Kernel -> Ollama tool invocation ===");
-    Console.WriteLine(message);
-    Console.WriteLine();
-}
-
-static async Task RunPerformanceBenchmarkAsync(Kernel kernel)
-{
-    var endpoint = new Uri("http://localhost:11434");
-    const string modelId = "qwen2.5";
-
     // Create kernels optimized for each approach
-    var toolCallingKernel = PerformanceBenchmark.CreateToolCallingKernel(endpoint, modelId);
-    var jsApiKernel = PerformanceBenchmark.CreateJavaScriptApiKernel(endpoint, modelId);
+    var toolCallingKernel = PerformanceBenchmark.CreateToolCallingKernel(apiKey, modelId);
+    var jsApiKernel = PerformanceBenchmark.CreateJavaScriptApiKernel(apiKey, modelId);
 
     var chat = toolCallingKernel.GetRequiredService<IChatCompletionService>();
     var scriptBox = jsApiKernel.GetRequiredService<IScriptBox>();
-    var benchmark = new PerformanceBenchmark(chat, scriptBox);
+    var tokenSink = toolCallingKernel.GetRequiredService<TokenSink>();
+    var benchmark = new PerformanceBenchmark(chat, scriptBox, tokenSink);
 
     // Example 1: Calculate complex math operations
     var mathTask = """
@@ -50,18 +38,7 @@ static async Task RunPerformanceBenchmarkAsync(Kernel kernel)
         Return the final result.
         """;
 
-    var mathScript = """
-        let a = 42, b = 8;
-        let sum = utils.math_add(a, b);
-        let doubled = utils.math_multiply(sum, 2);
-        let sqrted = utils.math_square_root(doubled);
-        let rounded = utils.math_round(sqrted);
-        let isEven = utils.util_is_even(rounded);
-        let final = isEven ? utils.math_multiply(rounded, 3) : utils.math_multiply(rounded, 5);
-        return { result: final, steps: 7 };
-        """;
-
-    await benchmark.CompareApproachesAsync(toolCallingKernel, mathTask, mathScript);
+    await benchmark.CompareApproachesAsync(toolCallingKernel, mathTask);
 
     Console.WriteLine("\n" + new string('=', 68) + "\n");
 
@@ -80,21 +57,5 @@ static async Task RunPerformanceBenchmarkAsync(Kernel kernel)
         Return all results.
         """;
 
-    var stringScript = """
-        let text = "hello world";
-        let upper = utils.str_uppercase(text);
-        let reversed = utils.str_reverse(upper);
-        let len = utils.str_length(reversed);
-        let startsD = utils.str_starts_with(reversed, "D");
-        let replaced = utils.str_replace(reversed, "W", "X");
-        
-        let arr = [1, 2, 3, 4, 5];
-        let sum = utils.array_sum(arr);
-        let max = utils.array_max(arr);
-        let sorted = utils.array_is_sorted(arr);
-        
-        return { text_ops: [upper, reversed, len, startsD, replaced], array_ops: [sum, max, sorted] };
-        """;
-
-    await benchmark.CompareApproachesAsync(toolCallingKernel, stringTask, stringScript);
+    await benchmark.CompareApproachesAsync(toolCallingKernel, stringTask);
 }

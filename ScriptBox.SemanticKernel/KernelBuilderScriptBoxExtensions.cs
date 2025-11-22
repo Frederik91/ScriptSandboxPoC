@@ -56,4 +56,23 @@ public static class KernelBuilderScriptBoxExtensions
 
         return builder;
     }
+
+    /// <summary>
+    /// Adds the ScriptBox discovery plugin to the kernel, allowing agents to query available APIs.
+    /// </summary>
+    /// <param name="builder">The kernel builder.</param>
+    /// <param name="pluginName">The name of the discovery plugin (defaults to "scriptbox_discovery").</param>
+    /// <returns>The provided builder to enable chaining.</returns>
+    public static IKernelBuilder AddScriptBoxDiscovery(
+        this IKernelBuilder builder,
+        string pluginName = "scriptbox_discovery")
+    {
+        if (builder is null)
+        {
+            throw new ArgumentNullException(nameof(builder));
+        }
+
+        builder.Plugins.AddFromType<ScriptBoxDiscoveryPlugin>(pluginName);
+        return builder;
+    }
 }

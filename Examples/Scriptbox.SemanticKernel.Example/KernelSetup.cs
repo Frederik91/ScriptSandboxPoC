@@ -1,19 +1,18 @@
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Connectors.Ollama;
 using ScriptBox.SemanticKernel;
 
 namespace Scriptbox.SemanticKernel.Example;
 
 /// <summary>
-/// Creates a kernel configured with Ollama chat completion and ScriptBox support.
+/// Creates a kernel configured with OpenAI chat completion and ScriptBox support.
 /// </summary>
 internal static class KernelSetup
 {
-    public static Kernel BuildKernel(Uri endpoint, string modelId)
+    public static Kernel BuildKernel(string apiKey, string modelId)
     {
-        if (endpoint is null)
+        if (string.IsNullOrWhiteSpace(apiKey))
         {
-            throw new ArgumentNullException(nameof(endpoint));
+            throw new ArgumentException("API key must be provided.", nameof(apiKey));
         }
 
         if (string.IsNullOrWhiteSpace(modelId))
@@ -23,10 +22,9 @@ internal static class KernelSetup
 
         var builder = Kernel.CreateBuilder();
 
-        builder.AddOllamaChatCompletion(
+        builder.AddOpenAIChatCompletion(
             modelId: modelId,
-            endpoint: endpoint,
-            serviceId: "ollama-chat");
+            apiKey: apiKey);
 
         builder.AddScriptBox(scriptBox =>
         {

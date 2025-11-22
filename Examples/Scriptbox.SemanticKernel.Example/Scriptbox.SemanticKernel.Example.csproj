@@ -5,14 +5,15 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UserSecretsId>7eaa711b-1661-425c-85c2-9dbda1a6d6ed</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\ScriptBox\ScriptBox.csproj" />
     <ProjectReference Include="..\..\ScriptBox.SemanticKernel\ScriptBox.SemanticKernel.csproj" />
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.67.1" />
-    <PackageReference Include="Microsoft.SemanticKernel.Connectors.Ollama" Version="1.67.1-alpha" />
-    <PackageReference Include="OllamaSharp" Version="5.4.11" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.67.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.0" />
   </ItemGroup>
 
 </Project>
