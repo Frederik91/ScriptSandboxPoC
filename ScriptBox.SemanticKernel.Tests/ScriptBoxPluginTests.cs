@@ -22,7 +22,7 @@ public class ScriptBoxPluginTests
         var output = await plugin.RunJavaScriptAsync("return ({ total: 4 + 5 })");
 
         using var doc = JsonDocument.Parse(output);
-        Assert.Equal(9, doc.RootElement.GetProperty("total").GetInt32());
+        Assert.Equal(9, doc.RootElement.GetProperty("result").GetProperty("total").GetInt32());
     }
 
     [Fact]
@@ -34,7 +34,8 @@ public class ScriptBoxPluginTests
 
         var output = await plugin.RunJavaScriptAsync("return scriptBoxInput.user.value * 3", "{\"value\":7}");
 
-        Assert.Equal("21", output);
+        using var doc = JsonDocument.Parse(output);
+        Assert.Equal(21, doc.RootElement.GetProperty("result").GetInt32());
     }
 
     [Fact]

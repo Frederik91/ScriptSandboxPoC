@@ -68,7 +68,7 @@ internal sealed class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
     }
 
     /// <inheritdoc />
-    public string ExecuteScript(string jsCode, int? timeoutMs = null)
+    public WasmExecutionResult ExecuteScript(string jsCode, int? timeoutMs = null)
     {
         if (string.IsNullOrEmpty(jsCode))
         {
@@ -108,13 +108,14 @@ internal sealed class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
     /// <summary>
     /// Internal method that performs the actual script execution without timeout handling.
     /// </summary>
-    private string ExecuteScriptInternal(string jsCode)
+    private WasmExecutionResult ExecuteScriptInternal(string jsCode)
     {
+        var logs = new List<string>();
         using var linker = new Linker(_engine);
         using var store = new Store(_engine);
 
         ConfigureWasi(store);
-        DefineHostBridge(store, linker);
+        DefineHostBridge(store, linker, logs.Add);
 
         var instance = linker.Instantiate(store, _module);
         var memory = instance.GetMemory(WasmConfiguration.MemoryExportName)
@@ -135,7 +136,8 @@ internal sealed class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
             fullScript = $"{startupJs};\nvoid 0;\n{WrapUserScriptInIife(jsCode)}";
         }
 
-        return ExecuteEvalFunction(instance, memory, fullScript);
+        var result = ExecuteEvalFunction(instance, memory, fullScript);
+        return new WasmExecutionResult(result, logs);
     }
 
     /// <summary>
@@ -166,7 +168,7 @@ internal sealed class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
     /// <summary>
     /// Defines the host.call bridge that allows QuickJS to invoke host methods.
     /// </summary>
-    private void DefineHostBridge(Store store, Linker linker)
+    private void DefineHostBridge(Store store, Linker linker, Action<string>? onLog = null)
     {
         linker.DefineWasi();
         linker.Define(
@@ -186,18 +188,19 @@ internal sealed class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
             Function.FromCallback(
                 store,
                 (Caller caller, int ptr, int len) =>
-                    HandleHostLogCallback(caller, ptr, len)
+                    HandleHostLogCallback(caller, ptr, len, onLog)
             )
         );
     }
 
-    private void HandleHostLogCallback(Caller caller, int ptr, int len)
+    private void HandleHostLogCallback(Caller caller, int ptr, int len, Action<string>? onLog)
     {
         var memory = caller.GetMemory(WasmConfiguration.MemoryExportName)
                     ?? throw new InvalidOperationException("No memory export");
 
         var message = ReadStringFromMemory(memory, ptr, len);
         _hostApi.Log(message);
+        onLog?.Invoke(message);
     }
 
     /// <summary>

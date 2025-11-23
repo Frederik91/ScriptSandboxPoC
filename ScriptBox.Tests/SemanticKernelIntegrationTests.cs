@@ -47,7 +47,10 @@ public class SemanticKernelIntegrationTests
         var plugin = new ScriptBoxPlugin(scriptBox, toolProvider);
 
         var result = await plugin.RunJavaScriptAsync("return ({ total: 21 + 21 })");
-        Assert.Equal("{\"total\":42}", result);
+        
+        using var doc = System.Text.Json.JsonDocument.Parse(result);
+        var total = doc.RootElement.GetProperty("result").GetProperty("total").GetInt32();
+        Assert.Equal(42, total);
     }
 
     [Fact]
@@ -58,6 +61,9 @@ public class SemanticKernelIntegrationTests
         var plugin = new ScriptBoxPlugin(scriptBox, toolProvider);
 
         var result = await plugin.RunJavaScriptAsync("return scriptBoxInput.user.value * 2", "{\"value\":5}");
-        Assert.Equal("10", result);
+        
+        using var doc = System.Text.Json.JsonDocument.Parse(result);
+        var value = doc.RootElement.GetProperty("result").GetInt32();
+        Assert.Equal(10, value);
     }
 }

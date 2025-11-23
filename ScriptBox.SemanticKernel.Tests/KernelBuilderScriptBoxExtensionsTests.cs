@@ -29,6 +29,8 @@ public class KernelBuilderScriptBoxExtensionsTests
 
         var result = await kernel.InvokeAsync<string>("scriptbox", "run_js", arguments);
 
-        Assert.Equal("5", result);
+        Assert.NotNull(result);
+        using var doc = System.Text.Json.JsonDocument.Parse(result);
+        Assert.Equal(5, doc.RootElement.GetProperty("result").GetInt32());
     }
 }

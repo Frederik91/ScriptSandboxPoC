@@ -38,10 +38,40 @@ public sealed class ScriptSession : IAsyncDisposable
             : string.Concat(_bootstrapCode, "\n", userScript);
 
         var timeoutMs = ConvertTimeoutToMilliseconds(_timeout);
-        var result = _executor.ExecuteScript(script, timeoutMs);
+        var executionResult = _executor.ExecuteScript(script, timeoutMs);
 
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult<object?>(result);
+        return Task.FromResult<object?>(executionResult.Result);
+    }
+
+    /// <summary>
+    /// Executes a script and returns the result along with any console logs captured during execution.
+    /// </summary>
+    /// <param name="userScript">The script to execute.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A result containing the return value and logs.</returns>
+    public Task<ScriptExecutionResult> ExecuteAsync(string userScript, CancellationToken cancellationToken = default)
+    {
+        if (userScript is null)
+        {
+            throw new ArgumentNullException(nameof(userScript));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var script = string.IsNullOrWhiteSpace(_bootstrapCode)
+            ? userScript
+            : string.Concat(_bootstrapCode, "\n", userScript);
+
+        var timeoutMs = ConvertTimeoutToMilliseconds(_timeout);
+        var executionResult = _executor.ExecuteScript(script, timeoutMs);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new ScriptExecutionResult
+        {
+            Result = executionResult.Result,
+            Logs = executionResult.Logs
+        });
     }
 
     public ValueTask DisposeAsync()
