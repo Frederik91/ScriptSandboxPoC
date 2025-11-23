@@ -9,15 +9,18 @@ namespace ScriptBox.SemanticKernel;
 
 public class SemanticKernelApiScanner : ISandboxApiScanner
 {
-    public bool TryCreateDescriptor(Type type, [NotNullWhen(true)] out SandboxApiDescriptor? descriptor)
+    public bool TryCreateDescriptor(Type type, string? namespaceOverride, [NotNullWhen(true)] out SandboxApiDescriptor? descriptor)
     {
         descriptor = null;
 
-        // We require [SandboxApi] for the namespace, just like standard ScriptBox APIs.
-        var apiAttribute = type.GetCustomAttribute<SandboxApiAttribute>();
-        if (apiAttribute is null)
+        string? apiName = namespaceOverride;
+        if (apiName is null)
         {
-            return false;
+            var apiAttribute = type.GetCustomAttribute<SandboxApiAttribute>();
+            if (apiAttribute != null)
+            {
+                apiName = apiAttribute.Name;
+            }
         }
 
         var methods = new List<SandboxMethodDescriptor>();
@@ -33,12 +36,17 @@ public class SemanticKernelApiScanner : ISandboxApiScanner
                 continue;
             }
 
+            if (apiName is null)
+            {
+                apiName = ToSnakeCase(type.Name);
+            }
+
             var jsMethodName = !string.IsNullOrWhiteSpace(kernelAttribute.Name)
                 ? kernelAttribute.Name!
                 : ToSnakeCase(method.Name);
 
             methods.Add(new SandboxMethodDescriptor(
-                apiAttribute.Name,
+                apiName,
                 jsMethodName,
                 method));
         }
@@ -51,7 +59,7 @@ public class SemanticKernelApiScanner : ISandboxApiScanner
             return false;
         }
 
-        descriptor = new SandboxApiDescriptor(type, apiAttribute.Name, methods, requiresInstance);
+        descriptor = new SandboxApiDescriptor(type, apiName!, methods, requiresInstance);
         return true;
     }
 

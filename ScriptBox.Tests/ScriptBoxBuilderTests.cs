@@ -116,4 +116,20 @@ if (result !== 5) {
         await using var session = scriptBox.CreateSession();
         await session.RunAsync("const sum = instanceCalc.add(2, 8); if (sum !== 10) throw new Error('unexpected sum ' + sum);");
     }
+
+    [Fact]
+    public async Task RegisterApisFrom_WithExplicitName_ExposesApiWithoutAttribute()
+    {
+        await using var scriptBox = ScriptBoxBuilder
+            .Create()
+            .RegisterApisFrom<UnnamedCalculatorApi>("my_calc")
+            .Build();
+
+        await using var session = scriptBox.CreateSession();
+        await session.RunAsync(@"
+const result = my_calc.add(10, 5);
+if (result !== 15) {
+    throw new Error('my_calc.add returned ' + result);
+}");
+    }
 }

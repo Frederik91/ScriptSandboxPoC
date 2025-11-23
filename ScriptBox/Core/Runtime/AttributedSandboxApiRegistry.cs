@@ -204,7 +204,7 @@ internal static class AttributedSandboxApiRegistry
         {
             foreach (var type in assembly.GetTypes())
             {
-                if (TryCreateDescriptor(type, out var descriptor))
+                if (TryCreateDescriptor(type, null, out var descriptor))
                 {
                     descriptors.Add(descriptor);
                 }
@@ -214,14 +214,19 @@ internal static class AttributedSandboxApiRegistry
         return descriptors;
     }
 
-    public static bool TryCreateDescriptor(Type type, [NotNullWhen(true)] out SandboxApiDescriptor? descriptor)
+    public static bool TryCreateDescriptor(Type type, string? namespaceOverride, [NotNullWhen(true)] out SandboxApiDescriptor? descriptor)
     {
         descriptor = null;
 
-        var apiAttribute = type.GetCustomAttribute<SandboxApiAttribute>();
-        if (apiAttribute is null)
+        string? apiName = namespaceOverride;
+        if (apiName is null)
         {
-            return false;
+            var apiAttribute = type.GetCustomAttribute<SandboxApiAttribute>();
+            if (apiAttribute is null)
+            {
+                return false;
+            }
+            apiName = apiAttribute.Name;
         }
 
         var isStatic = type.IsAbstract && type.IsSealed;
@@ -236,7 +241,7 @@ internal static class AttributedSandboxApiRegistry
             }
 
             methods.Add(new SandboxMethodDescriptor(
-                apiAttribute.Name,
+                apiName,
                 methodAttribute.Name,
                 method));
         }
@@ -252,7 +257,7 @@ internal static class AttributedSandboxApiRegistry
                 }
 
                 methods.Add(new SandboxMethodDescriptor(
-                    apiAttribute.Name,
+                    apiName,
                     methodAttribute.Name,
                     method));
             }
@@ -263,7 +268,7 @@ internal static class AttributedSandboxApiRegistry
             return false;
         }
 
-        descriptor = new SandboxApiDescriptor(type, apiAttribute.Name, methods, RequiresInstance: !isStatic);
+        descriptor = new SandboxApiDescriptor(type, apiName, methods, RequiresInstance: !isStatic);
 
         return true;
     }

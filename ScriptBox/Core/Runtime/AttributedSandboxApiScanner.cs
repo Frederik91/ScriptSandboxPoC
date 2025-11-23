@@ -5,8 +5,8 @@ namespace ScriptBox.Core.Runtime;
 
 public class AttributedSandboxApiScanner : ISandboxApiScanner
 {
-    public bool TryCreateDescriptor(Type type, [NotNullWhen(true)] out SandboxApiDescriptor? descriptor)
+    public bool TryCreateDescriptor(Type type, string? namespaceOverride, [NotNullWhen(true)] out SandboxApiDescriptor? descriptor)
     {
-        return AttributedSandboxApiRegistry.TryCreateDescriptor(type, out descriptor);
+        return AttributedSandboxApiRegistry.TryCreateDescriptor(type, namespaceOverride, out descriptor);
     }
 }

@@ -20,7 +20,7 @@ public sealed class ScriptBoxBuilder
     private readonly List<AllowedDirectory> _allowedDirectories = new();
     private readonly Dictionary<string, string?> _envVariables = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<Func<CancellationToken, Task<string>>> _bootstrapLoaders = new();
-    private readonly List<Type> _registeredApiTypes = new();
+    private readonly List<(Type Type, string? Namespace)> _registeredApiTypes = new();
     private readonly Dictionary<string, object> _metadata = new();
     private readonly List<ISandboxApiScanner> _apiScanners = new();
     private string? _wasmModulePath;
@@ -267,19 +267,19 @@ public sealed class ScriptBoxBuilder
         return this;
     }
 
-    public ScriptBoxBuilder RegisterApisFrom<T>()
+    public ScriptBoxBuilder RegisterApisFrom<T>(string? name = null)
     {
-        return RegisterApisFrom(typeof(T));
+        return RegisterApisFrom(typeof(T), name);
     }
 
-    public ScriptBoxBuilder RegisterApisFrom(Type type)
+    public ScriptBoxBuilder RegisterApisFrom(Type type, string? name = null)
     {
         if (type is null)
         {
             throw new ArgumentNullException(nameof(type));
         }
 
-        _registeredApiTypes.Add(type);
+        _registeredApiTypes.Add((type, name));
         return this;
     }
 
@@ -297,12 +297,12 @@ public sealed class ScriptBoxBuilder
         }
 
         var descriptors = new List<SandboxApiDescriptor>();
-        foreach (var type in _registeredApiTypes)
+        foreach (var (type, ns) in _registeredApiTypes)
         {
             SandboxApiDescriptor? descriptor = null;
             foreach (var scanner in _apiScanners)
             {
-                if (scanner.TryCreateDescriptor(type, out descriptor))
+                if (scanner.TryCreateDescriptor(type, ns, out descriptor))
                 {
                     break;
                 }
