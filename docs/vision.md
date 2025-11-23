@@ -29,7 +29,7 @@ Modern AI copilots constantly emit small snippets of JavaScript/TypeScript that 
 - **`scripts/sdk/scriptbox.js`** is the key developer-facing primitive. It wraps the `__host.bridge` call and exposes:
   - `__scriptbox.hostCall(method, args)` – synchronous host RPC.
   - `__scriptbox.createMethod("Namespace.Method")` – returns a callable that handles argument/response marshalling.
-- **Bootstrap scripts** are configurable (`SandboxConfiguration.BootstrapScripts`). By default we ship:
+- **Bootstrap scripts** are configurable (`SandboxConfiguration.StartupScripts`). By default we ship:
   1. `scripts/sdk/scriptbox.js` – required helper.
   2. `scripts/scriptbox.js` – example consumer API used by tests and docs. It is intentionally small; apps are expected to replace it.
 
@@ -98,7 +98,7 @@ var scriptBox = ScriptBoxBuilder
             File.WriteAllText(path, content);
             return null;
         }))
-    .WithAdditionalBootstrap(async _ =>
+    .WithStartupScript(async _ =>
         "globalThis.files = { read: (path) => __scriptbox.hostCall('MyFiles.Read', [path]) };")
     .Build();
 ```

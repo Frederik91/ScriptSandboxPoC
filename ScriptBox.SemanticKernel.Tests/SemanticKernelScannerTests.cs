@@ -18,7 +18,7 @@ public class SemanticKernelScannerTests
     public async Task CanRegisterPluginUsingScanner()
     {
         var builder = ScriptBoxBuilder.Create()
-            .AddApiScanner(new SemanticKernelApiScanner())
+            .WithApiScanner(new SemanticKernelApiScanner())
             .RegisterApisFrom<MySkPlugin>();
 
         await using var box = builder.Build();

@@ -18,7 +18,7 @@ public class SemanticKernelScannerRefactorTests
     public async Task CanRegisterVanillaPlugin_WithFallbackName()
     {
         var builder = ScriptBoxBuilder.Create()
-            .AddApiScanner(new SemanticKernelApiScanner())
+            .WithApiScanner(new SemanticKernelApiScanner())
             .RegisterApisFrom<VanillaSkPlugin>(); // Should default to "vanilla_sk_plugin"
 
         await using var box = builder.Build();
@@ -32,7 +32,7 @@ public class SemanticKernelScannerRefactorTests
     public async Task CanRegisterVanillaPlugin_WithExplicitName()
     {
         var builder = ScriptBoxBuilder.Create()
-            .AddApiScanner(new SemanticKernelApiScanner())
+            .WithApiScanner(new SemanticKernelApiScanner())
             .RegisterApisFrom<VanillaSkPlugin>("my_math");
 
         await using var box = builder.Build();

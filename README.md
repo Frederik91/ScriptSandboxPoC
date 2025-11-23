@@ -135,7 +135,7 @@ var sandbox = ScriptBoxBuilder.Create()
     .ConfigureNetwork(network =>
     {
         network.WithAllowedDomains("api.example.com", "microsoft.com");
-        network.WithTimeout(TimeSpan.FromSeconds(10));
+        network.WithRequestTimeout(TimeSpan.FromSeconds(10));
         network.WithMaxResponseSize(5 * 1024 * 1024); // 5MB
         
         // Configure the underlying HttpClient
@@ -145,7 +145,7 @@ var sandbox = ScriptBoxBuilder.Create()
         });
 
         // Optional: Provide a custom HttpClient factory (e.g. for mocking or auth)
-        network.UseHttpClientFactory(() => 
+        network.WithHttpClient(() => 
         {
             var handler = new HttpClientHandler();
             // handler.Proxy = ...
@@ -230,8 +230,8 @@ builder.AddScriptBox(
     configure: scriptBox =>
     {
         // Configure security directly on the builder
-        scriptBox.WithAllowedHttpDomains("api.weather.gov");
-        scriptBox.WithSandboxDirectory("./safe-root");
+        scriptBox.ConfigureNetwork(net => net.WithAllowedDomains("api.weather.gov"));
+        scriptBox.ConfigureFileSystem(fs => fs.WithRootDirectory("./safe-root"));
 
         // Register plugins to make available as js apis
         scriptBox.RegisterSemanticKernelPlugin<ClockPlugin>("time");

@@ -10,7 +10,7 @@ public class ScriptBoxBuilderTests
     [Fact]
     public async Task ScriptBoxBuilder_ExecutesCustomJsonHandler()
     {
-        var bootstrap = @"
+        var startupCode = @"
 (function() {
   function callHost(method, params) {
     var payload = JSON.stringify({ method: method, params: params });
@@ -34,7 +34,7 @@ public class ScriptBoxBuilderTests
 
         await using var scriptBox = ScriptBoxBuilder
             .Create()
-            .WithAdditionalBootstrap(_ => Task.FromResult(bootstrap))
+            .WithStartupScript(_ => Task.FromResult(startupCode))
             .ConfigureHostApi(api => api.RegisterJsonHandler(
                 "assistant.add",
                 ctx =>
@@ -98,7 +98,7 @@ if (result !== 5) {
 
         await using var scriptBox = ScriptBoxBuilder
             .Create()
-            .UseApiFactory(type =>
+            .WithApiFactory(type =>
             {
                 if (type == typeof(InstanceCalculatorApi))
                 {
