@@ -13,10 +13,10 @@ namespace ScriptBox.Core.WasmExecution;
 /// Manages WASM module lifecycle, memory operations, and error handling.
 /// </summary>
 #if NET6_0_OR_GREATER
-public class WasmScriptExecutor : IWasmScriptExecutor, IAsyncDisposable
+internal sealed class WasmScriptExecutor : IWasmScriptExecutor, IAsyncDisposable
 {
 #else
-public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
+internal sealed class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
 {
 #endif
     private readonly IHostApi _hostApi;

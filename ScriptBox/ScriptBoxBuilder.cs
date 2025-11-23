@@ -35,7 +35,7 @@ public sealed class ScriptBoxBuilder
 
     public static ScriptBoxBuilder Create() => new();
 
-    public ScriptBoxBuilder WithApiScanner(ISandboxApiScanner scanner)
+    internal ScriptBoxBuilder WithApiScanner(ISandboxApiScanner scanner)
     {
         if (scanner is null)
         {
@@ -213,7 +213,7 @@ public sealed class ScriptBoxBuilder
         builder.AppendLine();
     }
 
-    public ScriptBoxBuilder ConfigureHostApi(Func<HostApiBuilder, HostApiBuilder> configure)
+    internal ScriptBoxBuilder ConfigureHostApi(Func<HostApiBuilder, HostApiBuilder> configure)
     {
         if (configure is null)
         {
@@ -320,7 +320,7 @@ public sealed class ScriptBoxBuilder
         return this;
     }
 
-    public class FileSystemConfigurationBuilder
+    public sealed class FileSystemConfigurationBuilder
     {
         private readonly SandboxConfiguration _config;
 
@@ -346,7 +346,7 @@ public sealed class ScriptBoxBuilder
         }
     }
 
-    public class NetworkConfigurationBuilder
+    public sealed class NetworkConfigurationBuilder
     {
         private readonly SandboxConfiguration _config;
 

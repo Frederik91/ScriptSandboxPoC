@@ -10,7 +10,7 @@ namespace ScriptBox.SemanticKernel;
 /// Provides tools that have been registered directly into ScriptBox via RegisterSemanticKernelPlugin.
 /// These tools are available as host APIs in the sandbox.
 /// </summary>
-public sealed class ScriptBoxMetadataToolProvider : IScriptBoxToolProvider
+internal sealed class ScriptBoxMetadataToolProvider : IScriptBoxToolProvider
 {
     private readonly IScriptBox _scriptBox;
 

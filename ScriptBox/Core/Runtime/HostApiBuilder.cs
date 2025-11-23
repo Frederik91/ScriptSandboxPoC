@@ -7,7 +7,7 @@ namespace ScriptBox.Core.Runtime;
 /// <summary>
 /// Fluent builder for registering JSON-RPC style host handlers.
 /// </summary>
-public sealed class HostApiBuilder
+internal sealed class HostApiBuilder
 {
     private readonly Dictionary<string, Func<HostCallContext, Task<object?>>> _handlers =
         new(StringComparer.OrdinalIgnoreCase);

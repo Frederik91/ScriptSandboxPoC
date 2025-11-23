@@ -7,7 +7,7 @@ namespace ScriptBox.SemanticKernel;
 /// <summary>
 /// A Semantic Kernel plugin that allows an agent to discover available ScriptBox APIs.
 /// </summary>
-public class ScriptBoxDiscoveryPlugin
+public sealed class ScriptBoxDiscoveryPlugin
 {
     private readonly IScriptBox _scriptBox;
 

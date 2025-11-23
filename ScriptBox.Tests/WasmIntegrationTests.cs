@@ -386,7 +386,7 @@ console.log(person.name + ' is ' + person.age);
         Assert.IsType<InvalidOperationException>(exception);
     }
 
-    [Fact(Skip = "Known issue with complex nested array operations in QuickJS bootstrap - under investigation")]
+    [Fact]
     public void ExecuteScript_ComplexNestedOperations_ExecutesSuccessfully()
     {
         // Arrange
@@ -414,7 +414,7 @@ console.log('Total: ' + total);
             Times.Once);
     }
 
-    [Fact(Skip = "Known issue with string/array method combinations in QuickJS bootstrap - under investigation")]
+    [Fact]
     public void ExecuteScript_StringManipulation_ExecutesSuccessfully()
     {
         // Arrange

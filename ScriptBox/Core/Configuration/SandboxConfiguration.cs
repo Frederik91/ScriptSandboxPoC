@@ -19,7 +19,7 @@ public record NetworkConsentContext(HttpRequestMessage Request);
 /// Configuration for sandbox security and resource limits.
 /// Controls file system access, HTTP requests, and other security boundaries.
 /// </summary>
-public class SandboxConfiguration
+public sealed class SandboxConfiguration
 {
     /// <summary>
     /// Root directory for sandboxed file system operations.

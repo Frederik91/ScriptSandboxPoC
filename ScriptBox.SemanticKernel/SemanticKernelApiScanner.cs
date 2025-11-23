@@ -7,7 +7,7 @@ using ScriptBox.Core.Runtime;
 
 namespace ScriptBox.SemanticKernel;
 
-public class SemanticKernelApiScanner : ISandboxApiScanner
+internal sealed class SemanticKernelApiScanner : ISandboxApiScanner
 {
     public bool TryCreateDescriptor(Type type, string? namespaceOverride, [NotNullWhen(true)] out SandboxApiDescriptor? descriptor)
     {
