@@ -1,11 +1,11 @@
-name: Prerelease NuGet
+name: Publish NuGet
 
 on:
+  release:
+    types: [published]
   push:
     tags:
-      - "v*-alpha.*"
-      - "v*-beta.*"
-      - "v*-rc.*"
+      - "v*"
 
 jobs:
   build-wasm:

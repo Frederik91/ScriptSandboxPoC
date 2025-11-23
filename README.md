@@ -278,7 +278,7 @@ Need a working sample? `Examples/Scriptbox.SemanticKernel.Example/Program.cs` sp
 ## CI & Release
 
 * `.github/workflows/ci.yml` builds and tests the entire solution on every push/PR using .NET 9 & 10 SDKs.
-* `.github/workflows/prerelease.yml` watches tags (`v*-beta.*`, etc.), packs all NuGet packages (`ScriptBox`, `ScriptBox.DependencyInjection`, and `ScriptBox.SemanticKernel`), and pushes them to nuget.org.
+* `.github/workflows/publish.yml` watches tags (`v*`) and releases, packs all NuGet packages (`ScriptBox`, `ScriptBox.DependencyInjection`, and `ScriptBox.SemanticKernel`), and pushes them to nuget.org.
 
 ## Repository Structure
 
