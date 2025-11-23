@@ -14,11 +14,12 @@ namespace ScriptBox;
 /// <summary>
 /// Fluent builder for configuring ScriptBox instances.
 /// </summary>
-public sealed class ScriptBoxBuilder
+public sealed class ScriptBoxBuilder : IScriptBoxConfigurator
 {
     private readonly HostApiBuilder _hostApiBuilder = new();
     private readonly List<Func<CancellationToken, Task<string>>> _startupScriptLoaders = new();
     private readonly List<(Type Type, string? Namespace)> _registeredApiTypes = new();
+    private readonly List<(object Instance, string? Namespace)> _registeredApiInstances = new();
     private readonly Dictionary<string, object> _metadata = new();
     private readonly List<ISandboxApiScanner> _apiScanners = new();
     private string? _wasmModulePath;
@@ -114,6 +115,22 @@ public sealed class ScriptBoxBuilder
         }
 
         _registeredApiTypes.Add((type, name));
+        return this;
+    }
+
+    public ScriptBoxBuilder AddFromType<T>(string? name = null)
+    {
+        return RegisterApisFrom(typeof(T), name);
+    }
+
+    public ScriptBoxBuilder AddFromObject(object instance, string? name = null)
+    {
+        if (instance is null)
+        {
+            throw new ArgumentNullException(nameof(instance));
+        }
+
+        _registeredApiInstances.Add((instance, name));
         return this;
     }
 
@@ -226,12 +243,13 @@ public sealed class ScriptBoxBuilder
 
     private void ProcessAttributedApis()
     {
-        if (_registeredApiTypes.Count == 0)
+        if (_registeredApiTypes.Count == 0 && _registeredApiInstances.Count == 0)
         {
             return;
         }
 
-        var descriptors = new List<SandboxApiDescriptor>();
+        var descriptorsAndInstances = new List<(SandboxApiDescriptor Descriptor, object? Instance)>();
+
         foreach (var (type, ns) in _registeredApiTypes)
         {
             SandboxApiDescriptor? descriptor = null;
@@ -249,22 +267,43 @@ public sealed class ScriptBoxBuilder
                     $"Type '{type.FullName}' could not be processed by any registered API scanner. Ensure it has the correct attributes (e.g. [SandboxApi]).");
             }
 
-            descriptors.Add(descriptor);
+            descriptorsAndInstances.Add((descriptor, null));
         }
 
-        if (descriptors.Count == 0)
+        foreach (var (instance, ns) in _registeredApiInstances)
+        {
+            var type = instance.GetType();
+            SandboxApiDescriptor? descriptor = null;
+            foreach (var scanner in _apiScanners)
+            {
+                if (scanner.TryCreateDescriptor(type, ns, out descriptor))
+                {
+                    break;
+                }
+            }
+
+            if (descriptor is null)
+            {
+                throw new InvalidOperationException(
+                    $"Type '{type.FullName}' (from instance) could not be processed by any registered API scanner. Ensure it has the correct attributes (e.g. [SandboxApi]).");
+            }
+
+            descriptorsAndInstances.Add((descriptor, instance));
+        }
+
+        if (descriptorsAndInstances.Count == 0)
         {
             return;
         }
 
-        var bootstrap = AttributedSandboxApiRegistry.BuildBootstrap(descriptors);
+        var bootstrap = AttributedSandboxApiRegistry.BuildBootstrap(descriptorsAndInstances.Select(x => x.Descriptor));
         if (!string.IsNullOrWhiteSpace(bootstrap))
         {
             _startupScriptLoaders.Add(_ => Task.FromResult(bootstrap));
         }
 
         AttributedSandboxApiRegistry.RegisterHandlers(
-            descriptors,
+            descriptorsAndInstances,
             _hostApiBuilder,
             ResolveApiInstance);
     }
@@ -319,6 +358,25 @@ public sealed class ScriptBoxBuilder
         configure(builder);
         return this;
     }
+
+    #region IScriptBoxConfigurator Explicit Implementation
+
+    IScriptBoxConfigurator IScriptBoxConfigurator.WithWasmModuleFromPath(string path) => WithWasmModuleFromPath(path);
+    IScriptBoxConfigurator IScriptBoxConfigurator.WithWasmModule(ReadOnlyMemory<byte> moduleBytes) => WithWasmModule(moduleBytes);
+    IScriptBoxConfigurator IScriptBoxConfigurator.WithStartupFile(string path) => WithStartupFile(path);
+    IScriptBoxConfigurator IScriptBoxConfigurator.WithStartupScript(Func<CancellationToken, Task<string>> loader) => WithStartupScript(loader);
+    IScriptBoxConfigurator IScriptBoxConfigurator.WithExecutionTimeout(TimeSpan timeout) => WithExecutionTimeout(timeout);
+    IScriptBoxConfigurator IScriptBoxConfigurator.RegisterApisFrom<T>(string? name) => RegisterApisFrom<T>(name);
+    IScriptBoxConfigurator IScriptBoxConfigurator.RegisterApisFrom(Type type, string? name) => RegisterApisFrom(type, name);
+    IScriptBoxConfigurator IScriptBoxConfigurator.AddFromType<T>(string? name) => AddFromType<T>(name);
+    IScriptBoxConfigurator IScriptBoxConfigurator.AddFromObject(object instance, string? name) => AddFromObject(instance, name);
+    IScriptBoxConfigurator IScriptBoxConfigurator.WithApiFactory(Func<Type, object?> apiFactory) => WithApiFactory(apiFactory);
+    IScriptBoxConfigurator IScriptBoxConfigurator.WithMetadata(string key, object value) => WithMetadata(key, value);
+    IScriptBoxConfigurator IScriptBoxConfigurator.WithSandboxConfiguration(SandboxConfiguration configuration) => WithSandboxConfiguration(configuration);
+    IScriptBoxConfigurator IScriptBoxConfigurator.ConfigureFileSystem(Action<FileSystemConfigurationBuilder> configure) => ConfigureFileSystem(configure);
+    IScriptBoxConfigurator IScriptBoxConfigurator.ConfigureNetwork(Action<NetworkConfigurationBuilder> configure) => ConfigureNetwork(configure);
+
+    #endregion
 
     public sealed class FileSystemConfigurationBuilder
     {

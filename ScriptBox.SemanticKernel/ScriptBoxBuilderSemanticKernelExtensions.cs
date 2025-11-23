@@ -12,19 +12,24 @@ public static class ScriptBoxBuilderSemanticKernelExtensions
     /// Registers a Semantic Kernel plugin type as a ScriptBox namespace.
     /// </summary>
     /// <typeparam name="TPlugin">The plugin type containing [KernelFunction] methods.</typeparam>
-    /// <param name="builder">The ScriptBox builder instance.</param>
+    /// <param name="configurator">The ScriptBox configurator instance.</param>
     /// <param name="jsNamespace">The namespace that will be available in the sandbox.</param>
     /// <param name="pluginFactory">Optional factory for creating the plugin instance.</param>
     /// <returns>Metadata describing the registered namespace for TypeScript generation.</returns>
     public static SemanticKernelNamespaceMetadata RegisterSemanticKernelPlugin<TPlugin>(
-        this ScriptBoxBuilder builder,
+        this IScriptBoxConfigurator configurator,
         string jsNamespace,
         Func<TPlugin>? pluginFactory = null)
         where TPlugin : class
     {
-        if (builder is null)
+        if (configurator is null)
         {
-            throw new ArgumentNullException(nameof(builder));
+            throw new ArgumentNullException(nameof(configurator));
+        }
+
+        if (configurator is not ScriptBoxBuilder builder)
+        {
+            throw new ArgumentException($"Configurator must be of type {nameof(ScriptBoxBuilder)}", nameof(configurator));
         }
 
         if (string.IsNullOrWhiteSpace(jsNamespace))

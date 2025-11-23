@@ -7,7 +7,7 @@ public static class ScriptBoxServiceCollectionExtensions
 {
     public static IServiceCollection AddScriptBox(
         this IServiceCollection services,
-        Action<ScriptBoxBuilder, IServiceProvider>? configure = null)
+        Action<IScriptBoxConfigurator, IServiceProvider>? configure = null)
     {
         if (services is null)
         {

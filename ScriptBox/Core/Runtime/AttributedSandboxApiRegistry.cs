@@ -39,14 +39,14 @@ internal static class AttributedSandboxApiRegistry
     }
 
     public static void RegisterHandlers(
-        IEnumerable<SandboxApiDescriptor> apis,
+        IEnumerable<(SandboxApiDescriptor Descriptor, object? Instance)> apis,
         HostApiBuilder builder,
         Func<Type, object?>? resolveInstance)
     {
-        foreach (var api in apis)
+        foreach (var (api, explicitInstance) in apis)
         {
-            object? instance = null;
-            if (api.RequiresInstance)
+            object? instance = explicitInstance;
+            if (api.RequiresInstance && instance is null)
             {
                 var resolver = resolveInstance ?? DefaultInstanceFactory;
                 instance = resolver(api.ApiType);
