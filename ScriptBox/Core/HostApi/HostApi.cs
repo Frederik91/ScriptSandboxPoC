@@ -208,6 +208,11 @@ public class HostApiImpl : IHostApi
             throw new ArgumentException("URL cannot be null");
         }
 
+        if (!uri.IsAbsoluteUri)
+        {
+            throw new ArgumentException("Invalid URL: URL must be absolute");
+        }
+
         // Only allow HTTP and HTTPS
         if (uri.Scheme != "http" && uri.Scheme != "https")
         {
