@@ -19,10 +19,20 @@ public class HostApiImpl : IHostApi
         _config = config ?? SandboxConfiguration.CreateDefault();
         _config.Validate();
         _sandboxRoot = _config.GetOrCreateSandboxDirectory();
-        _httpClient = new HttpClient
+        
+        if (_config.HttpClientFactory != null)
         {
-            Timeout = TimeSpan.FromMilliseconds(_config.HttpTimeoutMs)
-        };
+            _httpClient = _config.HttpClientFactory();
+        }
+        else
+        {
+            _httpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromMilliseconds(_config.HttpTimeoutMs)
+            };
+        }
+        
+        _config.HttpClientConfigurator?.Invoke(_httpClient);
     }
 
     /// <summary>
@@ -58,7 +68,7 @@ public class HostApiImpl : IHostApi
     /// <summary>
     /// Validates and resolves a path within the sandbox, preventing path traversal attacks.
     /// </summary>
-    private string ValidateAndResolvePath(string relativePath)
+    private string ValidateAndResolvePath(string relativePath, string operation)
     {
         if (string.IsNullOrWhiteSpace(relativePath))
         {
@@ -77,6 +87,12 @@ public class HostApiImpl : IHostApi
         // Ensure the resolved path is still within the sandbox
         if (!fullPath.StartsWith(_sandboxRoot, StringComparison.OrdinalIgnoreCase))
         {
+            // Check if consent hook allows this access
+            if (_config.FileSystemConsentHook != null && _config.FileSystemConsentHook(new FileSystemConsentContext(fullPath, operation)))
+            {
+                return fullPath;
+            }
+
             throw new SecurityException($"Path traversal detected: {relativePath}");
         }
 
@@ -85,7 +101,7 @@ public class HostApiImpl : IHostApi
 
     public string FileSystemReadFile(string path)
     {
-        var fullPath = ValidateAndResolvePath(path);
+        var fullPath = ValidateAndResolvePath(path, "Read");
 
         if (!File.Exists(fullPath))
         {
@@ -97,7 +113,7 @@ public class HostApiImpl : IHostApi
 
     public void FileSystemWriteFile(string path, string content)
     {
-        var fullPath = ValidateAndResolvePath(path);
+        var fullPath = ValidateAndResolvePath(path, "Write");
 
         // Create parent directory if it doesn't exist
         var directory = Path.GetDirectoryName(fullPath);
@@ -111,7 +127,7 @@ public class HostApiImpl : IHostApi
 
     public string FileSystemListFiles(string path)
     {
-        var fullPath = ValidateAndResolvePath(path);
+        var fullPath = ValidateAndResolvePath(path, "List");
 
         if (!Directory.Exists(fullPath))
         {
@@ -149,13 +165,13 @@ public class HostApiImpl : IHostApi
 
     public bool FileSystemExists(string path)
     {
-        var fullPath = ValidateAndResolvePath(path);
+        var fullPath = ValidateAndResolvePath(path, "Exists");
         return File.Exists(fullPath) || Directory.Exists(fullPath);
     }
 
     public void FileSystemDelete(string path)
     {
-        var fullPath = ValidateAndResolvePath(path);
+        var fullPath = ValidateAndResolvePath(path, "Delete");
 
         if (File.Exists(fullPath))
         {
@@ -173,7 +189,7 @@ public class HostApiImpl : IHostApi
 
     public void FileSystemCreateDirectory(string path)
     {
-        var fullPath = ValidateAndResolvePath(path);
+        var fullPath = ValidateAndResolvePath(path, "CreateDirectory");
         Directory.CreateDirectory(fullPath);
     }
 
@@ -184,16 +200,12 @@ public class HostApiImpl : IHostApi
     /// <summary>
     /// Validates a URL for security (protocol check and optional domain whitelist).
     /// </summary>
-    private void ValidateUrl(string url)
+    private void ValidateRequest(HttpRequestMessage request)
     {
-        if (string.IsNullOrWhiteSpace(url))
+        var uri = request.RequestUri;
+        if (uri == null)
         {
-            throw new ArgumentException("URL cannot be null or empty");
-        }
-
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-        {
-            throw new ArgumentException($"Invalid URL: {url}");
+            throw new ArgumentException("URL cannot be null");
         }
 
         // Only allow HTTP and HTTPS
@@ -213,6 +225,12 @@ public class HostApiImpl : IHostApi
 
             if (!allowed)
             {
+                // Check if consent hook allows this access
+                if (_config.NetworkConsentHook != null && _config.NetworkConsentHook(new NetworkConsentContext(request)))
+                {
+                    return;
+                }
+
                 throw new SecurityException($"Domain not in whitelist: {uri.Host}");
             }
         }
@@ -249,11 +267,14 @@ public class HostApiImpl : IHostApi
 
     public string HttpGet(string url)
     {
-        ValidateUrl(url);
+        if (string.IsNullOrWhiteSpace(url)) throw new ArgumentException("URL cannot be null or empty");
+        
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        ValidateRequest(request);
 
         try
         {
-            var response = _httpClient.GetAsync(url).GetAwaiter().GetResult();
+            var response = _httpClient.SendAsync(request).GetAwaiter().GetResult();
             response.EnsureSuccessStatusCode();
             return ReadResponseWithLimitAsync(response).GetAwaiter().GetResult();
         }
@@ -269,12 +290,15 @@ public class HostApiImpl : IHostApi
 
     public string HttpPost(string url, string dataJson)
     {
-        ValidateUrl(url);
+        if (string.IsNullOrWhiteSpace(url)) throw new ArgumentException("URL cannot be null or empty");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+        request.Content = new StringContent(dataJson, Encoding.UTF8, "application/json");
+        ValidateRequest(request);
 
         try
         {
-            var content = new StringContent(dataJson, Encoding.UTF8, "application/json");
-            var response = _httpClient.PostAsync(url, content).GetAwaiter().GetResult();
+            var response = _httpClient.SendAsync(request).GetAwaiter().GetResult();
             response.EnsureSuccessStatusCode();
             return ReadResponseWithLimitAsync(response).GetAwaiter().GetResult();
         }
@@ -300,8 +324,6 @@ public class HostApiImpl : IHostApi
             var method = root.GetProperty("method").GetString()
                 ?? throw new ArgumentException("method is required");
 
-            ValidateUrl(url);
-
             var request = new HttpRequestMessage(new HttpMethod(method.ToUpperInvariant()), url);
 
             // Add custom headers if provided
@@ -322,6 +344,8 @@ public class HostApiImpl : IHostApi
                     request.Content = new StringContent(body, Encoding.UTF8, "application/json");
                 }
             }
+
+            ValidateRequest(request);
 
             var response = _httpClient.SendAsync(request).GetAwaiter().GetResult();
             var responseBody = ReadResponseWithLimitAsync(response).GetAwaiter().GetResult();

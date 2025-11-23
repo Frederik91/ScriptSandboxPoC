@@ -367,5 +367,107 @@ public sealed class ScriptBoxBuilder
         return this;
     }
 
+    public ScriptBoxBuilder ConfigureFileSystem(Action<FileSystemConfigurationBuilder> configure)
+    {
+        if (configure is null) throw new ArgumentNullException(nameof(configure));
+        var config = _sandboxConfiguration ??= SandboxConfiguration.CreateDefault();
+        var builder = new FileSystemConfigurationBuilder(config);
+        configure(builder);
+        return this;
+    }
+
+    public ScriptBoxBuilder ConfigureNetwork(Action<NetworkConfigurationBuilder> configure)
+    {
+        if (configure is null) throw new ArgumentNullException(nameof(configure));
+        var config = _sandboxConfiguration ??= SandboxConfiguration.CreateDefault();
+        var builder = new NetworkConfigurationBuilder(config);
+        configure(builder);
+        return this;
+    }
+
+    public class FileSystemConfigurationBuilder
+    {
+        private readonly SandboxConfiguration _config;
+
+        internal FileSystemConfigurationBuilder(SandboxConfiguration config)
+        {
+            _config = config;
+        }
+
+        public FileSystemConfigurationBuilder WithRootDirectory(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new ArgumentException("Sandbox directory cannot be null or empty", nameof(path));
+            }
+            _config.SandboxDirectory = path;
+            return this;
+        }
+
+        public FileSystemConfigurationBuilder WithConsentHook(Func<FileSystemConsentContext, bool> hook)
+        {
+            _config.FileSystemConsentHook = hook;
+            return this;
+        }
+    }
+
+    public class NetworkConfigurationBuilder
+    {
+        private readonly SandboxConfiguration _config;
+
+        internal NetworkConfigurationBuilder(SandboxConfiguration config)
+        {
+            _config = config;
+        }
+
+        public NetworkConfigurationBuilder WithAllowedDomains(params string[] domains)
+        {
+            _config.AllowedHttpDomains ??= new List<string>();
+            if (domains != null)
+            {
+                _config.AllowedHttpDomains.AddRange(domains);
+            }
+            return this;
+        }
+
+        public NetworkConfigurationBuilder ConfigureHttpClient(Action<System.Net.Http.HttpClient> configure)
+        {
+            _config.HttpClientConfigurator = configure;
+            return this;
+        }
+
+        public NetworkConfigurationBuilder UseHttpClientFactory(Func<System.Net.Http.HttpClient> factory)
+        {
+            _config.HttpClientFactory = factory;
+            return this;
+        }
+
+        public NetworkConfigurationBuilder WithConsentHook(Func<NetworkConsentContext, bool> hook)
+        {
+            _config.NetworkConsentHook = hook;
+            return this;
+        }
+
+        public NetworkConfigurationBuilder WithTimeout(TimeSpan timeout)
+        {
+            if (timeout.TotalMilliseconds <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(timeout), "Timeout must be positive");
+            }
+            _config.HttpTimeoutMs = (int)timeout.TotalMilliseconds;
+            return this;
+        }
+
+        public NetworkConfigurationBuilder WithMaxResponseSize(int bytes)
+        {
+            if (bytes <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(bytes), "Size must be positive");
+            }
+            _config.MaxHttpResponseSize = bytes;
+            return this;
+        }
+    }
+
     private sealed record AllowedDirectory(string HostPath, string MountPath, SandboxAccess Access);
 }

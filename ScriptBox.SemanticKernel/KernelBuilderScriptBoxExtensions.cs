@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.SemanticKernel;
 using ScriptBox;
+using ScriptBox.Core.Configuration;
 
 namespace ScriptBox.SemanticKernel;
 
@@ -16,6 +17,7 @@ public static class KernelBuilderScriptBoxExtensions
     /// </summary>
     /// <param name="builder">The kernel builder to enrich.</param>
     /// <param name="configure">Optional callback for configuring the underlying <see cref="ScriptBoxBuilder"/>.</param>
+    /// <param name="sandboxConfig">Optional configuration for the sandbox (file system, network, etc).</param>
     /// <param name="pluginName">The plugin name exposed to Semantic Kernel (defaults to "scriptbox").</param>
     /// <param name="enableDiscovery">Whether to automatically register the discovery plugin (defaults to true).</param>
     /// <param name="discoveryPluginName">The name of the discovery plugin if enabled (defaults to "scriptbox_discovery").</param>
@@ -23,6 +25,7 @@ public static class KernelBuilderScriptBoxExtensions
     public static IKernelBuilder AddScriptBox(
         this IKernelBuilder builder,
         Action<ScriptBoxBuilder>? configure = null,
+        SandboxConfiguration? sandboxConfig = null,
         string pluginName = "scriptbox",
         bool enableDiscovery = true,
         string discoveryPluginName = "scriptbox_discovery")
@@ -43,6 +46,11 @@ public static class KernelBuilderScriptBoxExtensions
                 .Create()
                 .UseApiFactory(type => ActivatorUtilities.GetServiceOrCreateInstance(services, type))
                 .AddApiScanner(new SemanticKernelApiScanner());
+
+            if (sandboxConfig != null)
+            {
+                scriptBoxBuilder.WithSandboxConfiguration(sandboxConfig);
+            }
 
             configure?.Invoke(scriptBoxBuilder);
 

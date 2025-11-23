@@ -58,7 +58,7 @@ public class FileApi
 
 var sandbox = ScriptBoxBuilder
     .Create()
-    .RegisterApisFrom<FileApi>()             // ScriptBox will Activator.CreateInstance<FileApi>()
+    .RegisterApisFrom<FileApi>()             // ScriptBox will use Activator.CreateInstance<FileApi>()
     .Build();
 ```
 
@@ -114,6 +114,95 @@ public class ScriptRunner
 
 This interface makes it easier to mock `ScriptBox` in unit tests.
 
+## Configuration & Security
+
+You can control file system access, network access, and resource limits using the fluent builder API.
+
+### Using Builder Methods (Recommended)
+
+```csharp
+var sandbox = ScriptBoxBuilder.Create()
+    .ConfigureFileSystem(fs =>
+    {
+        fs.WithRootDirectory(Path.Combine(Directory.GetCurrentDirectory(), "MySafeSandbox"));
+        // Optional: Add a consent hook for access outside the sandbox
+        fs.WithConsentHook(context => 
+        {
+            Console.WriteLine($"Allow {context.Operation} on {context.Path}?");
+            return Console.ReadLine() == "y";
+        });
+    })
+    .ConfigureNetwork(network =>
+    {
+        network.WithAllowedDomains("api.example.com", "microsoft.com");
+        network.WithTimeout(TimeSpan.FromSeconds(10));
+        network.WithMaxResponseSize(5 * 1024 * 1024); // 5MB
+        
+        // Configure the underlying HttpClient
+        network.ConfigureHttpClient(client => 
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "ScriptBox/1.0");
+        });
+
+        // Optional: Provide a custom HttpClient factory (e.g. for mocking or auth)
+        network.UseHttpClientFactory(() => 
+        {
+            var handler = new HttpClientHandler();
+            // handler.Proxy = ...
+            return new HttpClient(handler);
+        });
+
+        // Optional: Add a consent hook for domains not in the whitelist
+        network.WithConsentHook(context =>
+        {
+            Console.WriteLine($"Allow {context.Request.Method} to {context.Request.RequestUri}?");
+            return Console.ReadLine() == "y";
+        });
+    })
+    .Build();
+```
+
+### Using Configuration Object
+
+```csharp
+using ScriptBox.Core.Configuration;
+
+var config = new SandboxConfiguration
+{
+    // File System: Restrict access to a specific directory
+    SandboxDirectory = Path.Combine(Directory.GetCurrentDirectory(), "MySafeSandbox"),
+
+    // Network: Whitelist allowed domains (empty = allow all, null = allow all)
+    AllowedHttpDomains = new List<string> { "api.example.com", "microsoft.com" },
+
+    // Limits
+    MaxHttpResponseSize = 5 * 1024 * 1024, // 5MB
+    HttpTimeoutMs = 10000 // 10 seconds
+};
+
+var sandbox = ScriptBoxBuilder.Create()
+    .WithSandboxConfiguration(config)
+    .Build();
+```
+
+## Semantic Kernel Integration
+// ...existing code...
+// Configure sandbox security
+builder.AddScriptBox(
+    configure: scriptBox =>
+    {
+        // Configure security directly on the builder
+        scriptBox.ConfigureNetwork(net => net.WithAllowedDomains("api.weather.gov"));
+        scriptBox.ConfigureFileSystem(fs => fs.WithRootDirectory("./safe-root"));
+
+        // Register plugins to make available as js apis
+        scriptBox.RegisterSemanticKernelPlugin<ClockPlugin>("time");
+    }
+);
+
+var kernel = builder.Build();
+// ...existing code...
+
 ## Semantic Kernel Integration
 
 Install the additional package when you want Semantic Kernel agents to call ScriptBox through a single tool:
@@ -136,11 +225,18 @@ var builder = Kernel.CreateBuilder();
 // Register your preferred chat completion connector (Azure OpenAI, OpenAI, local LLM, etc.)
 // Example: builder.AddAzureOpenAIChatCompletion(deploymentName, endpoint, apiKey);
 
-builder.AddScriptBox(scriptBox =>
-{
-    // Register plugins to make available as js apis
-    scriptBox.RegisterSemanticKernelPlugin<ClockPlugin>("time");
-});
+// Configure sandbox security
+builder.AddScriptBox(
+    configure: scriptBox =>
+    {
+        // Configure security directly on the builder
+        scriptBox.WithAllowedHttpDomains("api.weather.gov");
+        scriptBox.WithSandboxDirectory("./safe-root");
+
+        // Register plugins to make available as js apis
+        scriptBox.RegisterSemanticKernelPlugin<ClockPlugin>("time");
+    }
+);
 
 var kernel = builder.Build();
 
