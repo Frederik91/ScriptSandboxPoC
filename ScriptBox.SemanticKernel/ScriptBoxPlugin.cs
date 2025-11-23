@@ -51,8 +51,31 @@ public sealed class ScriptBoxPlugin
         var mergedInputJson = JsonSerializer.Serialize(scriptBoxInput, SerializerOptions);
         
         var script = BuildScript(code, mergedInputJson);
-        var result = await session.RunAsync(script, cancellationToken).ConfigureAwait(false);
-        return SerializeResult(result);
+        var executionResult = await session.ExecuteAsync(script, cancellationToken).ConfigureAwait(false);
+        
+        var output = new
+        {
+            result = ParseResult(executionResult.Result),
+            logs = executionResult.Logs
+        };
+
+        return JsonSerializer.Serialize(output, SerializerOptions);
+    }
+
+    private static object? ParseResult(object? result)
+    {
+        if (result is string s)
+        {
+            try
+            {
+                return JsonSerializer.Deserialize<JsonElement>(s);
+            }
+            catch
+            {
+                return s;
+            }
+        }
+        return result;
     }
 
     private static string BuildScript(string code, string? inputJson)
@@ -89,26 +112,6 @@ public sealed class ScriptBoxPlugin
         {
             throw new ArgumentException("inputJson must be valid JSON.", nameof(inputJson), ex);
         }
-    }
-
-    private static string SerializeResult(object? result)
-    {
-        if (result is null)
-        {
-            return "null";
-        }
-
-        if (result is string s)
-        {
-            return s;
-        }
-
-        if (result is JsonElement element)
-        {
-            return element.GetRawText();
-        }
-
-        return JsonSerializer.Serialize(result, SerializerOptions);
     }
 
     private static object BuildScriptBoxInput(string? userInputJson, IReadOnlyList<ScriptBoxToolDescriptor> tools)

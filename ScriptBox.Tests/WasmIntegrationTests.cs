@@ -51,7 +51,7 @@ public class WasmIntegrationTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("2", result);
+        Assert.Equal("2", result.Result);
     }
 
     [Fact]
@@ -70,7 +70,7 @@ return sum(5, 3)";
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("8", result);
+        Assert.Equal("8", result.Result);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ return sum(5, 3)";
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("Hello World", result);
+        Assert.Equal("Hello World", result.Result);
     }
 
     [Fact]
@@ -100,7 +100,7 @@ return sum(5, 3)";
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("true", result);
+        Assert.Equal("true", result.Result);
     }
 
     [Fact]
@@ -115,7 +115,7 @@ return sum(5, 3)";
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("null", result);
+        Assert.Equal("null", result.Result);
     }
 
     [Fact]
@@ -130,7 +130,7 @@ return sum(5, 3)";
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("undefined", result);
+        Assert.Equal("undefined", result.Result);
     }
 
     [Fact]
@@ -145,10 +145,10 @@ return sum(5, 3)";
 
         // Assert
         Assert.NotNull(result);
-        Assert.Contains("\"name\"", result);
-        Assert.Contains("\"Alice\"", result);
-        Assert.Contains("\"age\"", result);
-        Assert.Contains("30", result);
+        Assert.Contains("\"name\"", result.Result);
+        Assert.Contains("\"Alice\"", result.Result);
+        Assert.Contains("\"age\"", result.Result);
+        Assert.Contains("30", result.Result);
     }
 
     [Fact]
@@ -163,7 +163,7 @@ return sum(5, 3)";
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("[1,2,3,4,5]", result);
+        Assert.Equal("[1,2,3,4,5]", result.Result);
     }
 
     [Fact]
@@ -239,7 +239,7 @@ return sum;
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("30", result);
+        Assert.Equal("30", result.Result);
         _mockHostApi.Verify(
             api => api.Log(It.Is<string>(msg => msg == "Sum: 30")),
             Times.Once);
@@ -820,7 +820,7 @@ return x;
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("42", result);
+        Assert.Equal("42", result.Result);
     }
 
     [Fact]
@@ -838,8 +838,8 @@ return result;
 
         // Assert
         Assert.NotNull(result);
-        Assert.Contains("Alice", result);
-        Assert.Contains("30", result);
+        Assert.Contains("Alice", result.Result);
+        Assert.Contains("30", result.Result);
     }
 
     [Fact]
@@ -857,8 +857,8 @@ return arr;
 
         // Assert
         Assert.NotNull(result);
-        Assert.Contains("[", result);
-        Assert.Contains("]", result);
+        Assert.Contains("[", result.Result);
+        Assert.Contains("]", result.Result);
     }
 
     [Fact]
@@ -882,9 +882,9 @@ return {
 
         // Assert
         Assert.NotNull(result);
-        Assert.Contains("text_ops", result);
-        Assert.Contains("array_ops", result);
-        Assert.Contains("HELLO WORLD", result);
+        Assert.Contains("text_ops", result.Result);
+        Assert.Contains("array_ops", result.Result);
+        Assert.Contains("HELLO WORLD", result.Result);
     }
 
     [Fact]
@@ -903,7 +903,7 @@ return x + y
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("30", result);
+        Assert.Equal("30", result.Result);
     }
 
     [Fact]
@@ -923,7 +923,7 @@ throw new Error('Should not reach here');
 
         // Assert
         Assert.NotNull(result);
-        Assert.Contains("early", result);
+        Assert.Contains("early", result.Result);
     }
 
     #endregion
