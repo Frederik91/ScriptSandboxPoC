@@ -16,7 +16,7 @@ public static class KernelBuilderScriptBoxExtensions
     /// Also registers <see cref="SemanticKernelToolProvider"/> so tools can be discovered and exposed to scripts.
     /// </summary>
     /// <param name="builder">The kernel builder to enrich.</param>
-    /// <param name="configure">Optional callback for configuring the underlying <see cref="ScriptBoxBuilder"/>.</param>
+    /// <param name="configure">Optional callback for configuring the underlying <see cref="IScriptBoxConfigurator"/>.</param>
     /// <param name="sandboxConfig">Optional configuration for the sandbox (file system, network, etc).</param>
     /// <param name="pluginName">The plugin name exposed to Semantic Kernel (defaults to "scriptbox").</param>
     /// <param name="enableDiscovery">Whether to automatically register the discovery plugin (defaults to true).</param>
@@ -24,7 +24,7 @@ public static class KernelBuilderScriptBoxExtensions
     /// <returns>The provided builder to enable chaining.</returns>
     public static IKernelBuilder AddScriptBox(
         this IKernelBuilder builder,
-        Action<ScriptBoxBuilder>? configure = null,
+        Action<IScriptBoxConfigurator>? configure = null,
         SandboxConfiguration? sandboxConfig = null,
         string pluginName = "scriptbox",
         bool enableDiscovery = true,
@@ -71,25 +71,6 @@ public static class KernelBuilderScriptBoxExtensions
             builder.Plugins.AddFromType<ScriptBoxDiscoveryPlugin>(discoveryPluginName);
         }
 
-        return builder;
-    }
-
-    /// <summary>
-    /// Adds the ScriptBox discovery plugin to the kernel, allowing agents to query available APIs.
-    /// </summary>
-    /// <param name="builder">The kernel builder.</param>
-    /// <param name="pluginName">The name of the discovery plugin (defaults to "scriptbox_discovery").</param>
-    /// <returns>The provided builder to enable chaining.</returns>
-    public static IKernelBuilder AddScriptBoxDiscovery(
-        this IKernelBuilder builder,
-        string pluginName = "scriptbox_discovery")
-    {
-        if (builder is null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
-
-        builder.Plugins.AddFromType<ScriptBoxDiscoveryPlugin>(pluginName);
         return builder;
     }
 }
