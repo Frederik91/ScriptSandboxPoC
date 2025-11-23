@@ -8,7 +8,7 @@ namespace ScriptBox.Core.WasmExecution;
 /// Describes how to load the QuickJS WASM module. Either from disk or from
 /// an in-memory byte array supplied by the builder.
 /// </summary>
-public sealed class WasmModuleSource
+internal sealed class WasmModuleSource
 {
     private readonly string? _path;
     private readonly byte[]? _moduleBytes;

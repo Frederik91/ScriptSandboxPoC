@@ -44,8 +44,8 @@ public static class KernelBuilderScriptBoxExtensions
         {
             var scriptBoxBuilder = ScriptBoxBuilder
                 .Create()
-                .UseApiFactory(type => ActivatorUtilities.GetServiceOrCreateInstance(services, type))
-                .AddApiScanner(new SemanticKernelApiScanner());
+                .WithApiFactory(type => ActivatorUtilities.GetServiceOrCreateInstance(services, type))
+                .WithApiScanner(new SemanticKernelApiScanner());
 
             if (sandboxConfig != null)
             {

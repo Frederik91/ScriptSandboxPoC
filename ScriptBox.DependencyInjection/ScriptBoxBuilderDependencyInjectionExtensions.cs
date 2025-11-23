@@ -19,7 +19,7 @@ public static class ScriptBoxBuilderDependencyInjectionExtensions
             throw new ArgumentNullException(nameof(serviceProvider));
         }
 
-        return builder.UseApiFactory(type =>
+        return builder.WithApiFactory(type =>
             ActivatorUtilities.GetServiceOrCreateInstance(serviceProvider, type));
     }
 }

@@ -3,7 +3,7 @@ namespace ScriptBox.Core.HostApi;
 /// <summary>
 /// Interface for host API methods that can be called from the sandbox.
 /// </summary>
-public interface IHostApi
+internal interface IHostApi
 {
     /// <summary>
     /// Logs a message to the host console.

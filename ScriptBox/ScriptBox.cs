@@ -15,19 +15,19 @@ public sealed class ScriptBox : IScriptBox, IDisposable
 {
 #endif
     private readonly WasmScriptExecutor _executor;
-    private readonly string _bootstrapCode;
+    private readonly string _startupCode;
     private readonly TimeSpan _defaultTimeout;
 
     public IReadOnlyDictionary<string, object> Metadata { get; }
 
     internal ScriptBox(
         WasmScriptExecutor executor,
-        string bootstrapCode,
+        string startupCode,
         TimeSpan defaultTimeout,
         IReadOnlyDictionary<string, object> metadata)
     {
         _executor = executor ?? throw new ArgumentNullException(nameof(executor));
-        _bootstrapCode = bootstrapCode ?? string.Empty;
+        _startupCode = startupCode ?? string.Empty;
         _defaultTimeout = defaultTimeout;
         Metadata = metadata ?? new Dictionary<string, object>();
     }
@@ -36,7 +36,7 @@ public sealed class ScriptBox : IScriptBox, IDisposable
     {
         return new ScriptSession(
             _executor,
-            _bootstrapCode,
+            _startupCode,
             timeout ?? _defaultTimeout);
     }
 

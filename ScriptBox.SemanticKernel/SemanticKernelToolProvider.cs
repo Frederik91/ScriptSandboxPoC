@@ -17,7 +17,7 @@ namespace ScriptBox.SemanticKernel;
 /// Discovers [KernelFunction] methods and exposes them as ScriptBoxToolDescriptor.
 /// Invokes tools by routing through the Kernel.
 /// </summary>
-public sealed class SemanticKernelToolProvider : IScriptBoxToolProvider
+internal sealed class SemanticKernelToolProvider : IScriptBoxToolProvider
 {
     private readonly Kernel _kernel;
     private IReadOnlyList<ScriptBoxToolDescriptor>? _toolsCache;

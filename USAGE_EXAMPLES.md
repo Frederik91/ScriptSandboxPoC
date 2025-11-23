@@ -274,7 +274,7 @@ var executor = new WasmScriptExecutor();
 // - MaxHttpResponseSize: 10MB
 // - HttpTimeoutMs: 30000 (30 seconds)
 // - AllowedHttpDomains: null (all domains allowed)
-// - BootstrapScripts:
+// - StartupScripts:
 //     scripts/sdk/scriptbox.js
 //     scripts/scriptbox.js (example API you can replace)
 ```
@@ -311,7 +311,7 @@ const scriptboxApi = {
 ```csharp
 var config = new SandboxConfiguration
 {
-    BootstrapScripts = new List<string>
+    StartupScripts = new List<string>
     {
         Path.Combine("scripts", "sdk", "scriptbox.js"),
         Path.Combine("scripts", "myScriptBoxApi.js")

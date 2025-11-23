@@ -11,14 +11,14 @@ Directory.CreateDirectory(sandboxDir);
 var sandboxConfig = new SandboxConfiguration
 {
     SandboxDirectory = sandboxDir,
-    BootstrapScripts = new List<string>()
+    StartupScripts = new List<string>()
 };
 
 var scriptBox = ScriptBoxBuilder
     .Create()
     .WithSandboxConfiguration(sandboxConfig)
     .RegisterApisFrom(typeof(DemoCalculatorApi))
-    .WithDefaultTimeout(TimeSpan.FromSeconds(5))
+    .WithExecutionTimeout(TimeSpan.FromSeconds(5))
     .Build();
 
 var scriptPath = Path.Combine(AppContext.BaseDirectory, "scripts", "sample-script.js");

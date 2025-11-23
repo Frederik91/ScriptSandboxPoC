@@ -8,7 +8,7 @@ namespace ScriptBox.Core.Runtime;
 /// <summary>
 /// Provides strongly-typed access to host call payloads originating from the WASM sandbox.
 /// </summary>
-public sealed class HostCallContext
+internal sealed class HostCallContext
 {
     private HostCallContext(
         string method,

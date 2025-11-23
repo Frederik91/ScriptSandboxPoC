@@ -1,6 +1,6 @@
 namespace ScriptBox.Core.Runtime;
 
-public enum SandboxAccess
+internal enum SandboxAccess
 {
     ReadOnly,
     ReadWrite

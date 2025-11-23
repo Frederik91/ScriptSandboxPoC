@@ -19,7 +19,7 @@ public record NetworkConsentContext(HttpRequestMessage Request);
 /// Configuration for sandbox security and resource limits.
 /// Controls file system access, HTTP requests, and other security boundaries.
 /// </summary>
-public class SandboxConfiguration
+public sealed class SandboxConfiguration
 {
     /// <summary>
     /// Root directory for sandboxed file system operations.
@@ -52,7 +52,7 @@ public class SandboxConfiguration
     /// Developers can remove scriptbox-api.js from this list to provide their own API surface.
     /// Paths can be absolute or relative to the application base directory.
     /// </summary>
-    public List<string> BootstrapScripts { get; set; } = new()
+    public List<string> StartupScripts { get; set; } = new()
     {
         Path.Combine("scripts", "sdk", "scriptbox.js"),
         Path.Combine("scripts", "scriptbox-api.js")
@@ -109,7 +109,7 @@ public class SandboxConfiguration
             throw new InvalidOperationException("HttpTimeoutMs must be positive");
         }
 
-        BootstrapScripts ??= new List<string>();
+        StartupScripts ??= new List<string>();
     }
 
     /// <summary>

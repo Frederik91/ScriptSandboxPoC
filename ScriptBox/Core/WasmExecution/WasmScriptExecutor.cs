@@ -13,10 +13,10 @@ namespace ScriptBox.Core.WasmExecution;
 /// Manages WASM module lifecycle, memory operations, and error handling.
 /// </summary>
 #if NET6_0_OR_GREATER
-public class WasmScriptExecutor : IWasmScriptExecutor, IAsyncDisposable
+internal sealed class WasmScriptExecutor : IWasmScriptExecutor, IAsyncDisposable
 {
 #else
-public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
+internal sealed class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
 {
 #endif
     private readonly IHostApi _hostApi;
@@ -122,9 +122,9 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
 
         // Prepend bootstrap JS before user code
         // Add void expression to discard bootstrap result, then evaluate user code
-        var bootstrapJs = LoadBootstrapJs();
+        var startupJs = LoadStartupJs();
         string fullScript;
-        if (string.IsNullOrWhiteSpace(bootstrapJs))
+        if (string.IsNullOrWhiteSpace(startupJs))
         {
             fullScript = WrapUserScriptInIife(jsCode);
         }
@@ -132,7 +132,7 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
         {
             // Terminate bootstrap, add void 0 to discard any bootstrap return value,
             // then wrap user code in an IIFE to support return statements at the top level
-            fullScript = $"{bootstrapJs};\nvoid 0;\n{WrapUserScriptInIife(jsCode)}";
+            fullScript = $"{startupJs};\nvoid 0;\n{WrapUserScriptInIife(jsCode)}";
         }
 
         return ExecuteEvalFunction(instance, memory, fullScript);
@@ -376,9 +376,9 @@ public class WasmScriptExecutor : IWasmScriptExecutor, IDisposable
     /// These are prepended before every user script.
     /// </summary>
     /// <returns>The bootstrap JavaScript code as a string.</returns>
-    private string LoadBootstrapJs()
+    private string LoadStartupJs()
     {
-        var scripts = _config.BootstrapScripts ?? new List<string>();
+        var scripts = _config.StartupScripts ?? new List<string>();
         if (scripts.Count == 0)
         {
             return string.Empty;

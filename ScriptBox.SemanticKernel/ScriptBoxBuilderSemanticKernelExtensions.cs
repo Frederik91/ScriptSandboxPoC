@@ -35,7 +35,12 @@ public static class ScriptBoxBuilderSemanticKernelExtensions
         var descriptor = SemanticKernelPluginScanner.CreateDescriptor(typeof(TPlugin), jsNamespace);
         var pluginInstance = descriptor.RequiresInstance ? CreateInstance(pluginFactory, descriptor.PluginType) : null;
 
-        builder.ExposeHostApi(descriptor.BootstrapCode, api =>
+        if (!string.IsNullOrWhiteSpace(descriptor.BootstrapCode))
+        {
+            builder.WithStartupScript(_ => Task.FromResult(descriptor.BootstrapCode));
+        }
+
+        builder.ConfigureHostApi(api =>
         {
             foreach (var function in descriptor.Functions)
             {

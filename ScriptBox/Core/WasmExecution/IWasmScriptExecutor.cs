@@ -4,7 +4,7 @@ namespace ScriptBox.Core.WasmExecution;
 /// Interface for executing JavaScript code in the WASM sandbox.
 /// Abstracts the details of WASM module loading, instantiation, and script execution.
 /// </summary>
-public interface IWasmScriptExecutor
+internal interface IWasmScriptExecutor
 {
     /// <summary>
     /// Executes JavaScript code in the QuickJS WASM sandbox and returns the result.

@@ -4,7 +4,7 @@ namespace ScriptBox.Core.WasmExecution;
 /// Configuration constants for WASM memory and script execution.
 /// Centralized to make adjustments easier for memory tuning or different WASM layouts.
 /// </summary>
-public static class WasmConfiguration
+internal static class WasmConfiguration
 {
     /// <summary>
     /// Memory offset where JavaScript source code is written.

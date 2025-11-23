@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace ScriptBox.Core.Runtime;
 
-public class AttributedSandboxApiScanner : ISandboxApiScanner
+internal sealed class AttributedSandboxApiScanner : ISandboxApiScanner
 {
     public bool TryCreateDescriptor(Type type, string? namespaceOverride, [NotNullWhen(true)] out SandboxApiDescriptor? descriptor)
     {

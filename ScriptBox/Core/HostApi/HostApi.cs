@@ -8,7 +8,7 @@ namespace ScriptBox.Core.HostApi;
 /// Direct host API implementation that executes in the worker process.
 /// Replaces the RPC-based communication with direct method calls.
 /// </summary>
-public class HostApiImpl : IHostApi
+internal sealed class HostApiImpl : IHostApi
 {
     private readonly SandboxConfiguration _config;
     private readonly string _sandboxRoot;
