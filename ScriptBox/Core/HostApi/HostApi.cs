@@ -23,6 +23,7 @@ public class HostApiImpl : IHostApi
         if (_config.HttpClientFactory != null)
         {
             _httpClient = _config.HttpClientFactory();
+            _httpClient.Timeout = TimeSpan.FromMilliseconds(_config.HttpTimeoutMs);
         }
         else
         {
