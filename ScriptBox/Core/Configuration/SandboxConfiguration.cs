@@ -1,4 +1,19 @@
+using System.Net.Http;
+
 namespace ScriptBox.Core.Configuration;
+
+/// <summary>
+/// Context for file system consent checks.
+/// </summary>
+/// <param name="Path">The absolute path being accessed.</param>
+/// <param name="Operation">The operation being performed (Read, Write, List, Exists, Delete, CreateDirectory).</param>
+public record FileSystemConsentContext(string Path, string Operation);
+
+/// <summary>
+/// Context for network consent checks.
+/// </summary>
+/// <param name="Request">The HTTP request message containing URL, method, headers, and content.</param>
+public record NetworkConsentContext(HttpRequestMessage Request);
 
 /// <summary>
 /// Configuration for sandbox security and resource limits.
@@ -42,6 +57,29 @@ public class SandboxConfiguration
         Path.Combine("scripts", "sdk", "scriptbox.js"),
         Path.Combine("scripts", "scriptbox-api.js")
     };
+
+    /// <summary>
+    /// Optional callback to configure the HttpClient used for network requests.
+    /// </summary>
+    public Action<HttpClient>? HttpClientConfigurator { get; set; }
+
+    /// <summary>
+    /// Optional factory to create the HttpClient used for network requests.
+    /// Use this to provide custom message handlers (e.g. for authentication or mocking).
+    /// </summary>
+    public Func<HttpClient>? HttpClientFactory { get; set; }
+
+    /// <summary>
+    /// Optional hook to request consent for file system access that would otherwise be denied.
+    /// Return true to allow, false to deny.
+    /// </summary>
+    public Func<FileSystemConsentContext, bool>? FileSystemConsentHook { get; set; }
+
+    /// <summary>
+    /// Optional hook to request consent for network access that would otherwise be denied.
+    /// Return true to allow, false to deny.
+    /// </summary>
+    public Func<NetworkConsentContext, bool>? NetworkConsentHook { get; set; }
 
     /// <summary>
     /// Creates a default configuration with reasonable security settings.
