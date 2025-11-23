@@ -11,7 +11,7 @@ Directory.CreateDirectory(sandboxDir);
 var sandboxConfig = new SandboxConfiguration
 {
     SandboxDirectory = sandboxDir,
-    BootstrapScripts = new List<string>()
+    StartupScripts = new List<string>()
 };
 
 var scriptBox = ScriptBoxBuilder
