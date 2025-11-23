@@ -1,5 +1,4 @@
 using System.Text;
-using ScriptBox.SemanticKernel;
 
 namespace ScriptBox.SemanticKernel;
 
