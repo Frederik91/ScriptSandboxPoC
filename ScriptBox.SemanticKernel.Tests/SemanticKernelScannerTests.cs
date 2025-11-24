@@ -44,14 +44,14 @@ public class SemanticKernelScannerTests
     }
 
     [Fact]
-    public void RegisterApisFrom_StoresMetadata_ForTypeScriptGeneration()
+    public async Task RegisterApisFrom_StoresMetadata_ForTypeScriptGeneration()
     {
         // This test verifies that metadata is automatically stored when using RegisterApisFrom
         // so users can generate TypeScript declarations without needing RegisterSemanticKernelPlugin
         var builder = ScriptBoxBuilder.Create()
             .RegisterApisFrom<MySkPlugin>(); // Metadata should be automatically stored
 
-        using var box = builder.Build();
+        await using var box = builder.Build();
 
         // Retrieve metadata using extension method
         var metadata = box.GetSemanticKernelMetadata();
