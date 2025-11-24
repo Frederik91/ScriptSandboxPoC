@@ -96,20 +96,20 @@ internal sealed class SemanticKernelApiScanner : ISandboxApiScanner
         {
             // Skip special parameters
             if (param.ParameterType == typeof(System.Threading.CancellationToken) ||
-                param.ParameterType == typeof(ScriptBox.Core.Runtime.HostCallContext))
+                param.ParameterType.FullName == "ScriptBox.Core.Runtime.HostCallContext")
             {
                 continue;
             }
 
-            var paramDescription = param.GetCustomAttribute<DescriptionAttribute>()?.Description ?? string.Empty;
+            var paramDescription = param.GetCustomAttribute<DescriptionAttribute>()?.Description;
             var isOptional = param.IsOptional || param.HasDefaultValue;
             var tsType = MapToTypeScriptType(param.ParameterType);
 
             parameters.Add(new SemanticKernelParameterMetadata(
                 param.Name ?? "arg",
                 tsType,
-                paramDescription,
-                isOptional));
+                isOptional,
+                paramDescription));
         }
 
         var returnType = method.ReturnType;
@@ -128,9 +128,9 @@ internal sealed class SemanticKernelApiScanner : ISandboxApiScanner
 
         return new SemanticKernelFunctionMetadata(
             jsMethodName,
-            tsReturnType,
             description,
             parameters,
+            tsReturnType,
             returnsVoid);
     }
 
