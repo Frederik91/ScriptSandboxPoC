@@ -12,6 +12,22 @@ using ScriptBox.Core.WasmExecution;
 namespace ScriptBox;
 
 /// <summary>
+/// Thread-local context for passing builder metadata to scanner factories.
+/// This allows extension packages to store metadata during API scanning.
+/// </summary>
+public static class BuilderMetadataContext
+{
+    [ThreadStatic]
+    private static Dictionary<string, object>? _current;
+
+    public static Dictionary<string, object>? Current
+    {
+        get => _current;
+        set => _current = value;
+    }
+}
+
+/// <summary>
 /// Fluent builder for configuring ScriptBox instances.
 /// </summary>
 public sealed class ScriptBoxBuilder : IScriptBoxConfigurator
@@ -36,12 +52,22 @@ public sealed class ScriptBoxBuilder : IScriptBoxConfigurator
         _startupScriptLoaders.Add(_ => Task.FromResult(DefaultRuntimeResources.LoadCoreBootstrap()));
         _apiScanners.Add(new AttributedSandboxApiScanner());
 
-        // Add all registered default scanners
+        // Add all registered default scanners, providing access to metadata storage
         lock (_scannerLock)
         {
-            foreach (var factory in _defaultScannerFactories)
+            // Temporarily expose metadata dictionary for scanner factories
+            var previousMetadata = BuilderMetadataContext.Current;
+            BuilderMetadataContext.Current = _metadata;
+            try
             {
-                _apiScanners.Add(factory());
+                foreach (var factory in _defaultScannerFactories)
+                {
+                    _apiScanners.Add(factory());
+                }
+            }
+            finally
+            {
+                BuilderMetadataContext.Current = previousMetadata;
             }
         }
     }

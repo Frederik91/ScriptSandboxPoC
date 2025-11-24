@@ -247,7 +247,23 @@ public sealed class ClockPlugin
 
 This highlights the important parts—wiring ScriptBox into Semantic Kernel, registering plugins as namespaces, and letting the LLM choose the `scriptbox.run_js` function. Check the full example in `Examples/Scriptbox.SemanticKernel.Example` if you need a complete console app with extra logging and prompt helpers.
 
-**Note:** You can also use `RegisterSemanticKernelPlugin<T>("namespace")` if you need to capture the returned metadata for TypeScript declaration generation. If you don't need the metadata, `RegisterApisFrom<T>("namespace")` works identically and is more consistent with the rest of the API.
+### TypeScript Declaration Generation
+
+If you want to provide type information to the LLM, you can generate TypeScript declarations for your registered plugins:
+
+```csharp
+var sandbox = ScriptBoxBuilder.Create()
+    .RegisterApisFrom<ClockPlugin>("time")
+    .RegisterApisFrom<MathPlugin>("math")
+    .Build();
+
+// Generate TypeScript declarations for all registered plugins
+string typescript = sandbox.GenerateTypeScriptDeclarations();
+
+// Or retrieve metadata manually
+var metadata = sandbox.GetSemanticKernelMetadata();
+string typescript = SemanticKernelTypeScriptGenerator.Generate(metadata);
+```
 
 The generated declaration file contains one interface per namespace plus matching global variables (`time` in the example). In SK orchestration you send this `.d.ts` contents to the model, the model emits JavaScript that relies on those namespaces, and then you call `await scriptBoxPlugin.RunJavaScriptAsync(code, inputJson)` (or the `scriptbox.run_js` tool) to execute it safely.
 
