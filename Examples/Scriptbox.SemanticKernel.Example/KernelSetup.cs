@@ -28,8 +28,8 @@ internal static class KernelSetup
 
         builder.AddScriptBox(scriptBox =>
         {
-            scriptBox.RegisterSemanticKernelPlugin<ClockPlugin>("time");
-            scriptBox.RegisterSemanticKernelPlugin<ManyApisPlugin>("utils");
+            scriptBox.RegisterApisFrom<ClockPlugin>("time");
+            scriptBox.RegisterApisFrom<ManyApisPlugin>("utils");
         });
 
         return builder.Build();

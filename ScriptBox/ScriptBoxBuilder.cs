@@ -51,18 +51,33 @@ public sealed class ScriptBoxBuilder : IScriptBoxConfigurator
     {
         _startupScriptLoaders.Add(_ => Task.FromResult(DefaultRuntimeResources.LoadCoreBootstrap()));
         _apiScanners.Add(new AttributedSandboxApiScanner());
+    }
 
-        // Add all registered default scanners, providing access to metadata storage
+    /// <summary>
+    /// Ensures all default scanners registered so far are added to this builder instance.
+    /// This is called lazily to handle module initializers that register scanners after builder creation.
+    /// </summary>
+    private void EnsureDefaultScannersLoaded()
+    {
         lock (_scannerLock)
         {
+            // Check if there are any default scanners we haven't loaded yet
+            var scannersToAdd = _defaultScannerFactories.Count - (_apiScanners.Count - 1); // -1 for AttributedSandboxApiScanner
+            if (scannersToAdd <= 0)
+            {
+                return; // All scanners already loaded
+            }
+
             // Temporarily expose metadata dictionary for scanner factories
             var previousMetadata = BuilderMetadataContext.Current;
             BuilderMetadataContext.Current = _metadata;
             try
             {
-                foreach (var factory in _defaultScannerFactories)
+                // Add only the new scanners (skip the ones we've already added)
+                var startIndex = _apiScanners.Count - 1; // -1 for AttributedSandboxApiScanner
+                for (int i = startIndex; i < _defaultScannerFactories.Count; i++)
                 {
-                    _apiScanners.Add(factory());
+                    _apiScanners.Add(_defaultScannerFactories[i]());
                 }
             }
             finally
@@ -303,6 +318,9 @@ public sealed class ScriptBoxBuilder : IScriptBoxConfigurator
         {
             return;
         }
+
+        // Ensure all default scanners are loaded (handles module initializers that run after builder creation)
+        EnsureDefaultScannersLoaded();
 
         var descriptorsAndInstances = new List<(SandboxApiDescriptor Descriptor, object? Instance)>();
 
