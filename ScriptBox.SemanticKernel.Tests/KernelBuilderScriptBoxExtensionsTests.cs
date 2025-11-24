@@ -12,7 +12,7 @@ public class KernelBuilderScriptBoxExtensionsTests
 
         builder.AddScriptBox(scriptBox =>
         {
-            scriptBox.RegisterSemanticKernelPlugin<SampleMathPlugin>("math");
+            scriptBox.RegisterApisFrom<SampleMathPlugin>("math");
         });
 
         var kernel = builder.Build();

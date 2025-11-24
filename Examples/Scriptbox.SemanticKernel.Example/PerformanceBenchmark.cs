@@ -80,8 +80,8 @@ internal sealed class PerformanceBenchmark
         // Register plugins as JavaScript APIs via ScriptBox
         builder.AddScriptBox(scriptBox =>
         {
-            scriptBox.RegisterSemanticKernelPlugin<ClockPlugin>("time");
-            scriptBox.RegisterSemanticKernelPlugin<ManyApisPlugin>("sb_utils");
+            scriptBox.RegisterApisFrom<ClockPlugin>("time");
+            scriptBox.RegisterApisFrom<ManyApisPlugin>("sb_utils");
         });
 
         return builder.Build();

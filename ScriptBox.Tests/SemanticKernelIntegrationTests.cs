@@ -16,10 +16,10 @@ public class SemanticKernelIntegrationTests
     }
 
     [Fact]
-    public async Task RegisterSemanticKernelPlugin_ExposesNamespace()
+    public async Task RegisterApisFrom_ExposesNamespace()
     {
         var builder = ScriptBoxBuilder.Create();
-        _ = builder.RegisterSemanticKernelPlugin<TestSemanticKernelPlugin>("math");
+        builder.RegisterApisFrom<TestSemanticKernelPlugin>("math");
         await using var scriptBox = builder.Build();
 
         await using var session = scriptBox.CreateSession();
@@ -31,12 +31,14 @@ public class SemanticKernelIntegrationTests
     public void TypeScriptGenerator_ProducesDeclarations()
     {
         var builder = ScriptBoxBuilder.Create();
-        var metadata = builder.RegisterSemanticKernelPlugin<TestSemanticKernelPlugin>("math");
-        var dts = SemanticKernelTypeScriptGenerator.Generate(new[] { metadata });
+        builder.RegisterApisFrom<TestSemanticKernelPlugin>("math");
+        var scriptBox = builder.Build();
 
-        Assert.Contains("interface MathApi", dts);
-        Assert.Contains("add(a: number, b: number): Promise<number>;", dts);
-        Assert.Contains("declare const math: ScriptBox.MathApi;", dts);
+        var typescript = scriptBox.GenerateTypeScriptDeclarations();
+
+        Assert.Contains("interface MathApi", typescript);
+        Assert.Contains("add(a: number, b: number): Promise<number>;", typescript);
+        Assert.Contains("declare const math: ScriptBox.MathApi;", typescript);
     }
 
     [Fact]

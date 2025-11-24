@@ -12,10 +12,29 @@ using ScriptBox.Core.WasmExecution;
 namespace ScriptBox;
 
 /// <summary>
+/// Thread-local context for passing builder metadata to scanner factories.
+/// This allows extension packages to store metadata during API scanning.
+/// </summary>
+public static class BuilderMetadataContext
+{
+    [ThreadStatic]
+    private static Dictionary<string, object>? _current;
+
+    public static Dictionary<string, object>? Current
+    {
+        get => _current;
+        set => _current = value;
+    }
+}
+
+/// <summary>
 /// Fluent builder for configuring ScriptBox instances.
 /// </summary>
 public sealed class ScriptBoxBuilder : IScriptBoxConfigurator
 {
+    private static readonly List<Func<ISandboxApiScanner>> _defaultScannerFactories = new();
+    private static readonly object _scannerLock = new();
+
     private readonly HostApiBuilder _hostApiBuilder = new();
     private readonly List<Func<CancellationToken, Task<string>>> _startupScriptLoaders = new();
     private readonly List<(Type Type, string? Namespace)> _registeredApiTypes = new();
@@ -34,7 +53,59 @@ public sealed class ScriptBoxBuilder : IScriptBoxConfigurator
         _apiScanners.Add(new AttributedSandboxApiScanner());
     }
 
+    /// <summary>
+    /// Ensures all default scanners registered so far are added to this builder instance.
+    /// This is called lazily to handle module initializers that register scanners after builder creation.
+    /// </summary>
+    private void EnsureDefaultScannersLoaded()
+    {
+        lock (_scannerLock)
+        {
+            // Check if there are any default scanners we haven't loaded yet
+            var scannersToAdd = _defaultScannerFactories.Count - (_apiScanners.Count - 1); // -1 for AttributedSandboxApiScanner
+            if (scannersToAdd <= 0)
+            {
+                return; // All scanners already loaded
+            }
+
+            // Temporarily expose metadata dictionary for scanner factories
+            var previousMetadata = BuilderMetadataContext.Current;
+            BuilderMetadataContext.Current = _metadata;
+            try
+            {
+                // Add only the new scanners (skip the ones we've already added)
+                var startIndex = _apiScanners.Count - 1; // -1 for AttributedSandboxApiScanner
+                for (int i = startIndex; i < _defaultScannerFactories.Count; i++)
+                {
+                    _apiScanners.Add(_defaultScannerFactories[i]());
+                }
+            }
+            finally
+            {
+                BuilderMetadataContext.Current = previousMetadata;
+            }
+        }
+    }
+
     public static ScriptBoxBuilder Create() => new();
+
+    /// <summary>
+    /// Registers a default scanner factory that will be automatically added to all new ScriptBoxBuilder instances.
+    /// This is typically called by package module initializers (e.g., ScriptBox.SemanticKernel).
+    /// </summary>
+    /// <param name="scannerFactory">Factory function that creates a scanner instance.</param>
+    public static void RegisterDefaultScanner(Func<ISandboxApiScanner> scannerFactory)
+    {
+        if (scannerFactory is null)
+        {
+            throw new ArgumentNullException(nameof(scannerFactory));
+        }
+
+        lock (_scannerLock)
+        {
+            _defaultScannerFactories.Add(scannerFactory);
+        }
+    }
 
     internal ScriptBoxBuilder WithApiScanner(ISandboxApiScanner scanner)
     {
@@ -247,6 +318,9 @@ public sealed class ScriptBoxBuilder : IScriptBoxConfigurator
         {
             return;
         }
+
+        // Ensure all default scanners are loaded (handles module initializers that run after builder creation)
+        EnsureDefaultScannersLoaded();
 
         var descriptorsAndInstances = new List<(SandboxApiDescriptor Descriptor, object? Instance)>();
 
