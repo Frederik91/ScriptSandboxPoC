@@ -16,6 +16,9 @@ namespace ScriptBox;
 /// </summary>
 public sealed class ScriptBoxBuilder : IScriptBoxConfigurator
 {
+    private static readonly List<Func<ISandboxApiScanner>> _defaultScannerFactories = new();
+    private static readonly object _scannerLock = new();
+
     private readonly HostApiBuilder _hostApiBuilder = new();
     private readonly List<Func<CancellationToken, Task<string>>> _startupScriptLoaders = new();
     private readonly List<(Type Type, string? Namespace)> _registeredApiTypes = new();
@@ -32,9 +35,36 @@ public sealed class ScriptBoxBuilder : IScriptBoxConfigurator
     {
         _startupScriptLoaders.Add(_ => Task.FromResult(DefaultRuntimeResources.LoadCoreBootstrap()));
         _apiScanners.Add(new AttributedSandboxApiScanner());
+
+        // Add all registered default scanners
+        lock (_scannerLock)
+        {
+            foreach (var factory in _defaultScannerFactories)
+            {
+                _apiScanners.Add(factory());
+            }
+        }
     }
 
     public static ScriptBoxBuilder Create() => new();
+
+    /// <summary>
+    /// Registers a default scanner factory that will be automatically added to all new ScriptBoxBuilder instances.
+    /// This is typically called by package module initializers (e.g., ScriptBox.SemanticKernel).
+    /// </summary>
+    /// <param name="scannerFactory">Factory function that creates a scanner instance.</param>
+    public static void RegisterDefaultScanner(Func<ISandboxApiScanner> scannerFactory)
+    {
+        if (scannerFactory is null)
+        {
+            throw new ArgumentNullException(nameof(scannerFactory));
+        }
+
+        lock (_scannerLock)
+        {
+            _defaultScannerFactories.Add(scannerFactory);
+        }
+    }
 
     internal ScriptBoxBuilder WithApiScanner(ISandboxApiScanner scanner)
     {

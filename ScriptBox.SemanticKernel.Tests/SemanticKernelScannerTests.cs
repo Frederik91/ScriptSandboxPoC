@@ -27,4 +27,19 @@ public class SemanticKernelScannerTests
         var result = await session.RunAsync("return sk_plugin.add(10, 20);");
         Assert.Equal("30", result);
     }
+
+    [Fact]
+    public async Task CanRegisterPluginWithoutExplicitScanner_UsingModuleInitializer()
+    {
+        // This test verifies that the SemanticKernelApiScanner is automatically registered
+        // via the module initializer, so users don't need to call WithApiScanner
+        var builder = ScriptBoxBuilder.Create()
+            .RegisterApisFrom<MySkPlugin>(); // No explicit WithApiScanner call!
+
+        await using var box = builder.Build();
+        await using var session = box.CreateSession();
+
+        var result = await session.RunAsync("return sk_plugin.add(15, 25);");
+        Assert.Equal("40", result);
+    }
 }

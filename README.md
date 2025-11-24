@@ -195,6 +195,8 @@ Install the additional package when you want Semantic Kernel agents to call Scri
 
 The snippet below distills the approach used in `Examples/Scriptbox.SemanticKernel.Example`: register a Semantic Kernel plugin as a ScriptBox namespace, expose it through the `scriptbox.run_js` tool, and keep both sides strongly typed.
 
+When you reference the `ScriptBox.SemanticKernel` package, it automatically enables support for `[KernelFunction]` attributes. You can use the same `RegisterApisFrom` method for both regular APIs (`[SandboxApi]`) and Semantic Kernel plugins - the package handles the detection automatically.
+
 ```csharp
 using System.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
@@ -216,7 +218,8 @@ builder.AddScriptBox(
         scriptBox.ConfigureFileSystem(fs => fs.WithRootDirectory("./safe-root"));
 
         // Register plugins to make available as js apis
-        scriptBox.RegisterSemanticKernelPlugin<ClockPlugin>("time");
+        // Works with both [SandboxApi] and [KernelFunction] attributes!
+        scriptBox.RegisterApisFrom<ClockPlugin>("time");
     }
 );
 
@@ -244,7 +247,7 @@ public sealed class ClockPlugin
 
 This highlights the important parts—wiring ScriptBox into Semantic Kernel, registering plugins as namespaces, and letting the LLM choose the `scriptbox.run_js` function. Check the full example in `Examples/Scriptbox.SemanticKernel.Example` if you need a complete console app with extra logging and prompt helpers.
 
-If you still need to feed type information to the LLM, call `SemanticKernelTypeScriptGenerator.Generate(...)` with the namespaces returned from `RegisterSemanticKernelPlugin` and send the resulting `.d.ts` file alongside the instructions.
+**Note:** You can also use `RegisterSemanticKernelPlugin<T>("namespace")` if you need to capture the returned metadata for TypeScript declaration generation. If you don't need the metadata, `RegisterApisFrom<T>("namespace")` works identically and is more consistent with the rest of the API.
 
 The generated declaration file contains one interface per namespace plus matching global variables (`time` in the example). In SK orchestration you send this `.d.ts` contents to the model, the model emits JavaScript that relies on those namespaces, and then you call `await scriptBoxPlugin.RunJavaScriptAsync(code, inputJson)` (or the `scriptbox.run_js` tool) to execute it safely.
 
