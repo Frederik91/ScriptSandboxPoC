@@ -42,7 +42,7 @@ var sandbox = ScriptBoxBuilder
 await using var session = sandbox.CreateSession();
 var result = await session.RunAsync(@"
     const sum = calculator.add(1, 2);
-    sum;
+    return sum;
 ");
 ```
 
@@ -184,24 +184,6 @@ var sandbox = ScriptBoxBuilder.Create()
     .WithSandboxConfiguration(config)
     .Build();
 ```
-
-## Semantic Kernel Integration
-// ...existing code...
-// Configure sandbox security
-builder.AddScriptBox(
-    configure: scriptBox =>
-    {
-        // Configure security directly on the builder
-        scriptBox.ConfigureNetwork(net => net.WithAllowedDomains("api.weather.gov"));
-        scriptBox.ConfigureFileSystem(fs => fs.WithRootDirectory("./safe-root"));
-
-        // Register plugins to make available as js apis
-        scriptBox.RegisterSemanticKernelPlugin<ClockPlugin>("time");
-    }
-);
-
-var kernel = builder.Build();
-// ...existing code...
 
 ## Semantic Kernel Integration
 
